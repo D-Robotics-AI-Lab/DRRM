@@ -14,5 +14,5 @@ pip install -e .
 
 ## 运行
 ```
-accelerate launch main.py --config-name=robot_dp.yaml
+accelerate launch main.py --config-name=test_policy.yaml
 ```
