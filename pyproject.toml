@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=70.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "RoboticsManipulation"
+dynamic = ["version"]
+description = "RoboticsManipulation."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { "text" = "AGPL-3.0" }
+keywords = ["vla", "va", "ML", "DL", "AI"]
+authors = [
+    { name = "fa.fu", email = "fa.fu@d-robotics.com" }
+]
+maintainers = [
+     { name = "fa.fu", email = "fa.fu@d-robotics.com" },
+]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+]
+
+dependencies = [
+    "hydra-core",
+    "omegaconf",
+    "packaging",
+    "wandb",
+    "deepspeed",
+    "accelerate",
+    "diffusers",
+    "timm",
+    "transformers",
+    "sentencepiece",
+    "opencv-python",
+    "imgaug",
+    "mpi4py",
+]
+
+[tool.setuptools]  # configuration specific to the `setuptools` build backend.
+packages = { find = { where = ["."], include = ["drrm", "drrm.*"] } }
+package-data = { "drrm" = ["**/*.yaml", ] }
+
+[tool.setuptools.dynamic]
+version = { attr = "drrm.__version__" }
