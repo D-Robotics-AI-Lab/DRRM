@@ -28,6 +28,53 @@
             "env": {
                 "CUDA_VISIBLE_DEVICES": "5"
             }
-        }
+        },
+        {
+            "name": "robotwin2lerobot",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/tools/robotwin2lerobot.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--task_name", "dual_bottles_pick_easy",
+                "--head_camera_type", "D435",
+                "--expert_data_num", "50",
+                "--save_dir", "./datasets"
+            ],
+            "justMyCode": false,
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "5"
+            }
+        },
+        {
+            "name": "read_pandas",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/tools/read_pandas.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--file_path", "/root/data/projects/embodiedai/RoboTwin/RoboticsManipulation/datasets/dual_bottles_pick_hard_D435/data/chunk-000/episode_000018.parquet"
+            ],
+            "justMyCode": false,
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "5"
+            }
+        },
+        {
+            "name": "robotwin2lerobot4dp",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/tools/robotwin2lerobot4dp.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--src", "/root/data/projects/embodiedai/RoboTwin/RoboticsManipulation/data/dual_bottles_pick_easy_D435_pkl",
+                "--dst_dir", "/root/data/projects/embodiedai/RoboTwin/RoboticsManipulation/data/lerobot/dual_bottles_pick_easy_D435",
+                "--repo", "D-robotics/dual_bottles_pick_easy_D435",
+            ],
+            "justMyCode": false,
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "5"
+            }
+        },
     ]
 }

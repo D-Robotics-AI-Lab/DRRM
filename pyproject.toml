@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "RoboticsManipulation"
-dynamic = ["version"]
+version = "0.1"
 description = "RoboticsManipulation."
 readme = "README.md"
 requires-python = ">=3.8"
@@ -52,12 +52,9 @@ dependencies = [
     "opencv-python",
     "imgaug",
     "mpi4py",
-    "zarr",
 ]
 
 [tool.setuptools]  # configuration specific to the `setuptools` build backend.
 packages = { find = { where = ["."], include = ["drrm", "drrm.*"] } }
 package-data = { "drrm" = ["**/*.yaml", ] }
 
-[tool.setuptools.dynamic]
-version = { attr = "drrm.__version__" }
