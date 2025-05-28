@@ -1,0 +1,33 @@
+{
+    "configurations": [
+        {
+            "name": "train_single",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--config-name", "test_policy"
+            ],
+            "justMyCode": false,
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "5"
+            }
+        },
+        {
+            "name": "test_diffusion_unet_policy",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/tests/test_diffusion_unet_policy.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--config-name", "test_diffusion_unet_policy",
+                "head_camera_type=D435"
+            ],
+            "justMyCode": false,
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "5"
+            }
+        }
+    ]
+}

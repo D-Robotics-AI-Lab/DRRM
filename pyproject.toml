@@ -52,6 +52,7 @@ dependencies = [
     "opencv-python",
     "imgaug",
     "mpi4py",
+    "zarr",
 ]
 
 [tool.setuptools]  # configuration specific to the `setuptools` build backend.
