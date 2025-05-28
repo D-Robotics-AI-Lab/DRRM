@@ -5,7 +5,7 @@ import zarr
 import numpy as np
 import torch
 import torch.nn as nn
-from diffusion_policy.common.pytorch_util import dict_apply
+from .pytorch_util import dict_apply
 from .dict_of_tensor_mixin import DictOfTensorMixin
 
 

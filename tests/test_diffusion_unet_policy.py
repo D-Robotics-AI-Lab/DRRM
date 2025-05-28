@@ -35,7 +35,8 @@ def test_diffusion_unet_policy(cfg: OmegaConf):
 
     
     policy = hydra.utils.instantiate(cfg.policy)
-    pass
+    
+    print(policy)
 
 if __name__ == "__main__":
     test_diffusion_unet_policy()
