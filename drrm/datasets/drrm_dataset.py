@@ -1,5 +1,4 @@
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
-from drrm.common.normalize_util import get_image_range_normalizer, get_range_normalizer_from_stat, get_identity_normalizer_from_stat
 from lerobot.common.datasets.lerobot_dataset import LeRobotDatasetMetadata
 from pathlib import Path
 import numpy as np
@@ -11,7 +10,11 @@ from lerobot.common.datasets.utils import (
     check_timestamps_sync,
 )
 from drrm.common.normalizer import LinearNormalizer
-
+from drrm.common.normalize_util import (
+    get_image_range_normalizer, 
+    get_range_normalizer_from_stat, 
+    get_identity_normalizer_from_stat
+)
 
 def downsample_mask(mask, max_n, seed=0):
     """Downsample training data to max_n samples"""
@@ -137,8 +140,9 @@ class DRRMDataset(LeRobotDataset):
     def _setup_train_val_split(self):
         """Setup train/validation split and return train episodes"""
         n_episodes = self.dataset_meta.total_episodes
-        self.val_mask = get_val_mask(n_episodes, self.val_ratio, self.seed)
-        
+        # self.val_mask = get_val_mask(n_episodes, self.val_ratio, self.seed)
+        self.val_mask = np.zeros(n_episodes, dtype=bool)
+        self.val_mask[-2] = True
         train_mask = ~self.val_mask
         train_mask = downsample_mask(train_mask, self.max_train_episodes, self.seed)
         
@@ -308,8 +312,8 @@ class DRRMDataset(LeRobotDataset):
     def __getitem__(self, idx):
         """Get dataset item with all features"""
         # Get base item from HuggingFace dataset
-        item = self.hf_dataset[idx]
-        ep_idx = item["episode_index"].item()
+        item = self.hf_dataset[idx] # idx是新数据集上的index
+        ep_idx = item["episode_index"].item() # 根据item["episode_index"]找到旧数据集上的episode_index
         
         # Query temporal data if needed
         query_indices = None

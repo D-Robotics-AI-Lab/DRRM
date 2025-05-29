@@ -42,6 +42,17 @@
             "env": {
                 "CUDA_VISIBLE_DEVICES": "5"
             }
-        }
+        },
+        {
+            "name": "test_dp3",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/drrm/models/policy/diffusion_policy_3d/dp3.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "5"
+            }
+        },
     ]
 }

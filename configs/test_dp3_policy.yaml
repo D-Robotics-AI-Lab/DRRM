@@ -89,8 +89,62 @@ max_grad_norm: 1.0
 
 # --------------------------- model config
 model:
-  _target_: drrm.models.policy.test_policy.TestPolicy
-  num_classes: 10
+  _target_: drrm.models.policy.diffusion_policy_3d.dp3.DP3
+  use_point_crop: true
+  condition_type: film
+  use_down_condition: true
+  use_mid_condition: true
+  use_up_condition: true
+  diffusion_step_embed_dim: 64
+  down_dims:
+  - 512
+  - 1024
+  - 2048
+  crop_shape:
+  - 80
+  - 80
+  encoder_output_dim: 128 # dual 128, raw 64
+  horizon: 8
+  kernel_size: 5
+  n_action_steps: 8
+  n_groups: 8
+  n_obs_steps: 3
+
+  noise_scheduler:
+    _target_: diffusers.schedulers.scheduling_ddim.DDIMScheduler
+    num_train_timesteps: 100
+    beta_start: 0.0001
+    beta_end: 0.02
+    beta_schedule: squaredcos_cap_v2
+    clip_sample: True
+    set_alpha_to_one: True
+    steps_offset: 0
+    prediction_type: sample
+
+  num_inference_steps: 10
+  obs_as_global_cond: true
+  shape_meta: 
+    action:
+      shape: [14]
+      type: low_dim
+    obs:
+      point_cloud:
+        shape: [1024, 6]
+        type: point_cloud
+      agent_pos:
+        shape: [14]
+        type: low_dim
+
+  use_pc_color: false
+  pointnet_type: "pointnet"
+
+  pointcloud_encoder_cfg:
+    in_channels: 3
+    out_channels: ${model.encoder_output_dim}
+    use_layernorm: true
+    final_norm: layernorm # layernorm, none
+    normal_channel: false
+
 ema:
   update_after_step: 0
   inv_gamma: 1.0
@@ -100,13 +154,15 @@ ema:
 
 train_dataset:
   _target_: drrm.datasets.drrm_dataset.DRRMDataset
-  repo_id: D-robotics/dual_bottles_pick_hard_D435_emvis
+  repo_id: D-robotics/dual_bottles_pick_hard_D435
   horizon: 8
   pad_before: 3
   pad_after: 3
   seed: 42
   val_ratio: 0.02
-  npy_feature_keys: ["spatial_tokens_23", "image_tokens_pos"]
+  npy_feature_keys: null
+  # - spatial_tokens_23
+  # - image_tokens_pos
   dataset_metadata:
     _target_: drrm.datasets.drrm_dataset.LeRobotDatasetMetadata
     repo_id: D-robotics/dual_bottles_pick_hard_D435
