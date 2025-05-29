@@ -5,6 +5,7 @@ wandb/
 checkpoints/
 datasets/
 third_party/
+.vscode/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

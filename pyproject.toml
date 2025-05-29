@@ -51,7 +51,6 @@ dependencies = [
     "sentencepiece",
     "opencv-python",
     "imgaug",
-    "mpi4py",
 ]
 
 [tool.setuptools]  # configuration specific to the `setuptools` build backend.

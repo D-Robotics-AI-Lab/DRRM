@@ -1,6 +1,54 @@
 {
     "configurations": [
         {
+            "name": "robotwin2lerobot4dp",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/tools/robotwin2lerobot4dp.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--src_dir", "data/dual_bottles_pick_easy_D435_pkl",
+                "--dst_dir", "data/lerobot/dual_bottles_pick_easy_D435",
+                "--repo", "D-robotics/dual_bottles_pick_easy_D435",
+            ],
+            "justMyCode": false,
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "5"
+            }
+        },
+        {
+            "name": "robotwin2lerobot4dp_emvis",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/tools/robotwin2lerobot4dp_emvis.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--src_dir", "data/dual_bottles_pick_easy_D435_pkl",
+                "--dst_dir", "data/lerobot/dual_bottles_pick_easy_D435_emvis",
+                "--repo", "D-robotics/dual_bottles_pick_easy_D435_emvis",
+                "--vggt_path", "checkpoints/VGGT-1B/model.pt",
+            ],
+            "justMyCode": false,
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "5"
+            }
+        },
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        {
             "name": "train_single",
             "type": "debugpy",
             "request": "launch",
