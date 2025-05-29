@@ -2,7 +2,7 @@
 
 ## 环境安装
 ```
-conda create -n robotics_manipulation
+conda create -n robotics_manipulation python=3.10
 conda activate robotics_manipulation
 
 git clone https://github.com/D-Robotics-AI-Lab/RoboticsManipulation.git
