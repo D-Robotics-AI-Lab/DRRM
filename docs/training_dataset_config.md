@@ -4,15 +4,16 @@
 ```bash
 # step1: 在config 对应的yaml中进行配置
 # step2: 配置数据集
+total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
 if hasattr(args, 'num_train_epochs') and args.num_train_epochs is not None:
-    train_step = args.num_train_epochs * len(train_dataset)
+    train_samples = args.num_train_epochs * len(train_dataset)
 else:
-    train_step = args.max_train_steps
+    train_samples = args.max_train_steps
 
 sampler = RandomSampler(
     train_dataset,
     replacement=args.train_sampler.sampler.replacement,
-    num_samples=train_steps,
+    num_samples=train_samples,
 )
 # step3: 更新学习率相关的配置
 # Scheduler and math around the number of training steps.

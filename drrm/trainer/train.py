@@ -135,24 +135,27 @@ def train(args, logger):
     if hasattr(args, "total_batch_size") and args.total_batch_size is not None:
         args.train_batch_size = args.total_batch_size // accelerator.num_processes
         args.sample_batch_size = args.total_batch_size // accelerator.num_processes
+    # Train!
+    total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
+
 
     if hasattr(args, "train_sampler"):
         from torch.utils.data import RandomSampler, BatchSampler
         # TODO:兼容到num_epochs
         # Calculate total training steps for the sampler
         if hasattr(args, 'num_train_epochs') and args.num_train_epochs is not None:
-            train_steps = args.num_train_epochs * len(train_dataset)
+            train_samples = args.num_train_epochs * len(train_dataset)
         else:
-            train_steps = args.max_train_steps
+            train_samples = args.max_train_steps
         
         sampler = RandomSampler(
             train_dataset,
             replacement=args.train_sampler.sampler.replacement,
-            num_samples=train_steps,
+            num_samples=train_samples,
         )
         batch_sampler = BatchSampler(
             sampler,
-            batch_size=args.train_sampler.batch_size,
+            batch_size=args.train_batch_size,
             drop_last=args.train_sampler.drop_last,
         )
         train_dataloader = torch.utils.data.DataLoader(
@@ -216,9 +219,6 @@ def train(args, logger):
     # The trackers initializes automatically on the main process.
     if accelerator.is_main_process:
         accelerator.init_trackers("RoboticsManipulation", config=dict(args))
-
-    # Train!
-    total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
 
     logger.info("***** Running training *****")
     logger.info(f"  Num examples = {len(train_dataset)}")

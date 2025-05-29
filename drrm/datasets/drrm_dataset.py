@@ -140,9 +140,7 @@ class DRRMDataset(LeRobotDataset):
     def _setup_train_val_split(self):
         """Setup train/validation split and return train episodes"""
         n_episodes = self.dataset_meta.total_episodes
-        # self.val_mask = get_val_mask(n_episodes, self.val_ratio, self.seed)
-        self.val_mask = np.zeros(n_episodes, dtype=bool)
-        self.val_mask[-2] = True
+        self.val_mask = get_val_mask(n_episodes, self.val_ratio, self.seed)
         train_mask = ~self.val_mask
         train_mask = downsample_mask(train_mask, self.max_train_episodes, self.seed)
         
