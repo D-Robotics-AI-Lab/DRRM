@@ -134,7 +134,7 @@ def train(args, logger):
         sampler = RandomSampler(
             train_dataset,
             replacement=args.train_sampler.sampler.replacement,
-            num_samples=len(train_dataset) * args.train_sampler.sampler.num_epochs,
+            num_samples=args.max_train_steps,
         )
         batch_sampler = BatchSampler(
             sampler,
@@ -164,7 +164,7 @@ def train(args, logger):
         shuffle=False,
         num_workers=args.dataloader_num_workers,
         pin_memory=True,
-        persistent_workers=True,
+        persistent_workers=False,
     )
 
     # Scheduler and math around the number of training steps.

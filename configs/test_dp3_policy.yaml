@@ -1,12 +1,12 @@
 # --------------------------- trainer config
 # trainer function
-_target_: drrm.trainer.train
+_target_: drrm.trainer.train.train
 # The output directory where the model predictions and checkpoints will be written.
 output_dir: checkpoints
 # Enable DeepSpeed and pass the path to its config file or an already initialized DeepSpeed config dictionary
 deepspeed: null
 # Batch size (per device) for the training dataloader.
-train_batch_size: 32
+train_batch_size: 64
 # Batch size (per device) for the sampling dataloader.
 sample_batch_size: 64
 # Number of batches to sample from the dataset.
@@ -14,7 +14,7 @@ num_sample_batches: 2
 # Number of training epochs.
 num_train_epochs: 10
 # Total number of training steps to perform.  If provided, overrides num_train_epochs.
-max_train_steps: 200000
+max_train_steps: 30000
 # Max number of checkpoints to store. Passed as `total_limit` to the `Accelerator` `ProjectConfiguration`.
 # See Accelerator::save_state https://huggingface.co/docs/accelerate/package_reference/accelerator#accelerate.Accelerator.save_state for more details
 checkpoints_total_limit: 40
@@ -63,7 +63,7 @@ seed: 42
 # In the case that the checkpoint is better than the final trained model, the checkpoint can also be used for inference.
 # Using a checkpoint for inference requires separate loading of the original pipeline and the individual checkpointed model components.
 # See https://huggingface.co/docs/diffusers/main/en/training/dreambooth#performing-inference-using-a-saved-checkpoint for step by step instructions.
-checkpointing_period: 1000
+checkpointing_period: 10000
 # Run sampling every X steps. During the sampling phase, the model will sample a trajectory 
 # and report the error between the sampled trajectory and groud-truth trajectory in the training batch.
 sample_period: 500
@@ -174,4 +174,3 @@ train_sampler:
   drop_last: True
   sampler:
     replacement: True
-    num_epochs: 300

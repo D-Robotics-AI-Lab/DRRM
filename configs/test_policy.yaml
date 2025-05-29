@@ -1,6 +1,6 @@
 # --------------------------- trainer config
 # trainer function
-_target_: drrm.trainer.train
+_target_: drrm.trainer.train.train
 # The output directory where the model predictions and checkpoints will be written.
 output_dir: checkpoints
 # Enable DeepSpeed and pass the path to its config file or an already initialized DeepSpeed config dictionary
