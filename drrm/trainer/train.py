@@ -269,6 +269,11 @@ def train(args, logger):
                 loss = policy_model(batch)
 
                 accelerator.backward(loss)
+
+                # 打印一些本身参数有梯度，但是backward发现没有梯度的参数
+                for name, param in policy_model.named_parameters():
+                    if param.requires_grad and param.grad is None:
+                        print("未获得梯度的参数:", name, param.shape)
                 if accelerator.sync_gradients:
                     params_to_clip = policy_model.parameters()
                     accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)

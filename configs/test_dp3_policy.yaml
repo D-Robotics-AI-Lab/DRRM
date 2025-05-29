@@ -155,6 +155,7 @@ ema:
 train_dataset:
   _target_: drrm.datasets.drrm_dataset.DRRMDataset
   repo_id: D-robotics/dual_bottles_pick_hard_D435
+  root: /workspace/.cache/huggingface/lerobot/D-robotics/dual_bottles_pick_hard_D435
   horizon: 8
   pad_before: 3
   pad_after: 3
@@ -164,8 +165,9 @@ train_dataset:
   # - spatial_tokens_23
   # - image_tokens_pos
   dataset_metadata:
-    _target_: drrm.datasets.drrm_dataset.LeRobotDatasetMetadata
+    _target_: lerobot.common.datasets.lerobot_dataset.LeRobotDatasetMetadata
     repo_id: D-robotics/dual_bottles_pick_hard_D435
+    root: /workspace/.cache/huggingface/lerobot/D-robotics/dual_bottles_pick_hard_D435
 
 train_sampler:
   batch_size: 64
