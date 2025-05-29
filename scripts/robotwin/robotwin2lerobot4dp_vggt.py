@@ -20,7 +20,7 @@ TASK_STR = "dual bottles pick easy"
 CAMERA_SHAPE = (240, 320, 3)
 # Feature schema definition for the LeRobot dataset
 FEATURES = {
-    "head_camera": {"dtype": "video", "shape": CAMERA_SHAPE, "names": ["h", "w", "c"]},
+    "head_cam": {"dtype": "video", "shape": CAMERA_SHAPE, "names": ["h", "w", "c"]},
     "endpose": {"dtype": "float32", "shape": (14,), "names": ["endpose"]},
     "agent_pos": {"dtype": "float32", "shape": (14,), "names": ["agent_pos"]},
     "action": {"dtype": "float32", "shape": (14,), "names": ["action"]},
@@ -54,7 +54,7 @@ def _extract_frame(data: Dict[str, Any]) -> Dict[str, Any]:
         "agent_pos": data["joint_action"].astype(np.float32),
         "action": data["joint_action"].astype(np.float32),
         "endpose": data["endpose"].astype(np.float32),
-        "head_camera": data["observation"]["head_camera"]["rgb"].astype(np.float32) / 255.0,
+        "head_cam": data["observation"]["head_camera"]["rgb"].astype(np.float32) / 255.0,
     }
 
 def _update_feature_buffer(buffer: Dict[str, List], features: Dict[str, torch.Tensor]) -> None:

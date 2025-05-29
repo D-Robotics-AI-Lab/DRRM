@@ -186,9 +186,9 @@ class DiffusionUnetImagePolicy(BasePolicy):
         }
         return result
 
-    # # ========= training  ============
-    # def set_normalizer(self, normalizer: LinearNormalizer):
-    #     self.normalizer.load_state_dict(normalizer.state_dict())
+    # ========= training  ============
+    def set_normalizer(self, normalizer: LinearNormalizer):
+        self.normalizer.load_state_dict(normalizer.state_dict())
 
     def compute_loss(self, batch):
         # normalize input

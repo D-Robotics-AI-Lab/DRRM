@@ -120,6 +120,10 @@ def train(args, logger):
     
     # Dataset and DataLoaders creation
     train_dataset = hydra.utils.instantiate(args.train_dataset)
+    if hasattr(train_dataset, "get_normalizer"):
+        normalizer = train_dataset.get_normalizer()
+        policy_model.set_normalizer(normalizer)
+        ema_policy_model.set_normalizer(normalizer)
     if hasattr(train_dataset, "get_validation_dataset"):
         eval_dataset = train_dataset.get_validation_dataset()
     else:
