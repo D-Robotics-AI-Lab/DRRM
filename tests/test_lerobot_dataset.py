@@ -47,7 +47,6 @@ dataset = DRRMDataset(
     max_train_episodes=None,
     npy_feature_keys=VGGT_FEATURE_KEYS,
     dataset_metadata=metadata,
-    use_vggt_input=USE_VGGT_INPUT,
 )
 
 normalizer = dataset.get_normalizer()

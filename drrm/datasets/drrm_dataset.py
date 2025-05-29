@@ -1,9 +1,6 @@
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
-from drrm.common.normalizer import LinearNormalizer
-from drrm.common.normalize_util import get_image_range_normalizer, get_range_normalizer_from_stat, get_identity_normalizer_from_stat
 from lerobot.common.datasets.lerobot_dataset import LeRobotDatasetMetadata
 from pathlib import Path
-import torch
 import numpy as np
 import shutil
 from lerobot.common.datasets.compute_stats import sample_images, get_feature_stats
@@ -12,47 +9,48 @@ from lerobot.common.datasets.utils import (
     get_episode_data_index,
     check_timestamps_sync,
 )
+from drrm.common.normalizer import LinearNormalizer
+from drrm.common.normalize_util import (
+    get_image_range_normalizer, 
+    get_range_normalizer_from_stat, 
+    get_identity_normalizer_from_stat
+)
 
 def downsample_mask(mask, max_n, seed=0):
-    # subsample training data
-    train_mask = mask
-    if (max_n is not None) and (np.sum(train_mask) > max_n):
-        n_train = int(max_n)
-        curr_train_idxs = np.nonzero(train_mask)[0]
-        rng = np.random.default_rng(seed=seed)
-        train_idxs_idx = rng.choice(len(curr_train_idxs), size=n_train, replace=False)
-        train_idxs = curr_train_idxs[train_idxs_idx]
-        train_mask = np.zeros_like(train_mask)
-        train_mask[train_idxs] = True
-        assert np.sum(train_mask) == n_train
-    return train_mask
+    """Downsample training data to max_n samples"""
+    if max_n is None or np.sum(mask) <= max_n:
+        return mask
+    
+    n_train = int(max_n)
+    curr_train_idxs = np.nonzero(mask)[0]
+    rng = np.random.default_rng(seed=seed)
+    train_idxs_idx = rng.choice(len(curr_train_idxs), size=n_train, replace=False)
+    train_idxs = curr_train_idxs[train_idxs_idx]
+    
+    new_mask = np.zeros_like(mask)
+    new_mask[train_idxs] = True
+    return new_mask
+
 
 def get_val_mask(n_episodes, val_ratio, seed=0):
-    val_mask = np.zeros(n_episodes, dtype=bool)
+    """Create validation mask for episodes"""
     if val_ratio <= 0:
-        return val_mask
+        return np.zeros(n_episodes, dtype=bool)
 
-    # have at least 1 episode for validation, and at least 1 episode for train
-    n_val = min(max(1, round(n_episodes * val_ratio)), n_episodes-1)
+    # Ensure at least 1 episode for validation and 1 for training
+    n_val = min(max(1, round(n_episodes * val_ratio)), n_episodes - 1)
     rng = np.random.default_rng(seed=seed)
     val_idxs = rng.choice(n_episodes, size=n_val, replace=False)
+    
+    val_mask = np.zeros(n_episodes, dtype=bool)
     val_mask[val_idxs] = True
     return val_mask
 
-def decode_string_to_tensor(encoded_str: str) -> torch.Tensor:
-    """使用pickle从string解码tensor，更高效的方法"""
-    import pickle
-    import base64
-    
-    # 从base64解码
-    pickled_bytes = base64.b64decode(encoded_str)
-    # 用pickle反序列化
-    numpy_array = pickle.loads(pickled_bytes)
-    # 转换为torch tensor
-    return torch.from_numpy(numpy_array)
 
-def compute_episode_stats(episode_data: dict[str, list[str] | np.ndarray], features: dict) -> dict:
+def compute_episode_stats(episode_data, features):
+    """Compute statistics for episode data"""
     ep_stats = {}
+    
     for key, data in episode_data.items():
         if features[key]["dtype"] == "string":
             continue  # HACK: we should receive np.arrays of strings
@@ -81,24 +79,26 @@ def compute_episode_stats(episode_data: dict[str, list[str] | np.ndarray], featu
     return ep_stats
 
 class DRRMDataset(LeRobotDataset):
+    """Enhanced LeRobot dataset with DRRM-specific features"""
+    
+    DEFAULT_KEYS = {'timestamp', 'frame_indx', 'episode_index', 'index', 'task_index', 'frame_index'}
+    
     def __init__(self, 
-        repo_id: str,
-        root: str | Path | None = None,
-        dataset_metadata: dict | None = None,
-        episodes: list[int] | None = None,
-        horizon: int = 8,
-        pad_before: int = 0,
-        pad_after: int = 0,
-        npy_feature_keys: list[str] | None = None,
-        seed: int = 0,
-        val_ratio: float = 0.0,
-        max_train_episodes: int | None = None,
-        use_vggt_input: bool = False,
-        ):
-        # 只调用LeRobotDataset的初始化，因为BaseDataset的__init__是空的
+                 repo_id: str,
+                 root:  str | Path | None = None,
+                 dataset_metadata: LeRobotDatasetMetadata | None = None,
+                 episodes: list[int] | None = None,
+                 horizon: int = 8,
+                 pad_before: int = 0,
+                 pad_after: int = 0,
+                 npy_feature_keys: list[str] | None = None,
+                 seed: int = 0,
+                 val_ratio: float = 0.0,
+                 max_train_episodes=None):
+        
+        # Store all parameters for easy access
         self.dataset_meta = dataset_metadata
         self.repo_id = repo_id
-        # 保存构造参数以便创建验证集
         self.root = root
         self.horizon = horizon
         self.pad_before = pad_before
@@ -106,37 +106,56 @@ class DRRMDataset(LeRobotDataset):
         self.seed = seed
         self.val_ratio = val_ratio
         self.max_train_episodes = max_train_episodes
-        self.npy_feature_keys = npy_feature_keys if npy_feature_keys is not None else []
-        self.use_vggt_input = use_vggt_input
-        self.default_keys = {'timestamp', 'frame_indx', 'episode_index', 'index', 'task_index', 'frame_index'}
-        # 计算各种key对应的delta_timestamps
-        self.delta_timestamps = {
-            key: [t / self.dataset_meta.fps for t in range(-pad_before, -pad_before+horizon)]
-            for key in self.dataset_meta.names.keys() if key not in self.default_keys
-        }
+        self.npy_feature_keys = npy_feature_keys or []
         self.val_mask = None
+        
+        # Setup delta timestamps
+        self.delta_timestamps = self._create_delta_timestamps()
+        
+        # Handle episode selection and train/val split
         if episodes is None:
-            n_episodes = self.dataset_meta.total_episodes
-            self.val_mask = get_val_mask(n_episodes, val_ratio, seed)
-            train_mask = ~self.val_mask
-            train_mask = downsample_mask(train_mask, max_train_episodes, seed)
-            episodes = np.nonzero(train_mask)[0]
+            episodes = self._setup_train_val_split()
+            
         self.ep_idx_to_arr_idx = {ep_idx: arr_idx for arr_idx, ep_idx in enumerate(episodes)}
-        LeRobotDataset.__init__(self, 
-                repo_id = repo_id, 
-                root = root, 
-                episodes = episodes,
-                delta_timestamps = self.delta_timestamps)
+        
+        # Initialize parent class
+        super().__init__(
+            repo_id=repo_id, 
+            root=root, 
+            episodes=episodes,
+            delta_timestamps=self.delta_timestamps
+        )
+
+    def _create_delta_timestamps(self):
+        """Create delta timestamps for all non-default keys"""
+        timestamps = {}
+        for key in self.dataset_meta.names.keys():
+            if key not in self.DEFAULT_KEYS:
+                timestamps[key] = [
+                    t / self.dataset_meta.fps 
+                    for t in range(-self.pad_before, -self.pad_before + self.horizon)
+                ]
+        return timestamps
+
+    def _setup_train_val_split(self):
+        """Setup train/validation split and return train episodes"""
+        n_episodes = self.dataset_meta.total_episodes
+        # self.val_mask = get_val_mask(n_episodes, self.val_ratio, self.seed)
+        self.val_mask = np.zeros(n_episodes, dtype=bool)
+        self.val_mask[-2] = True
+        train_mask = ~self.val_mask
+        train_mask = downsample_mask(train_mask, self.max_train_episodes, self.seed)
+        
+        return np.nonzero(train_mask)[0]
 
     def get_validation_dataset(self):
+        """Create validation dataset if validation split exists"""
         if self.val_mask is None:
             return None
         
-        # 获取验证集的episode索引
         val_episodes = np.nonzero(self.val_mask)[0]
         
-        # 创建验证集dataset实例
-        val_dataset = self.__class__(
+        return self.__class__(
             repo_id=self.repo_id,
             root=self.root,
             dataset_metadata=self.dataset_meta,
@@ -146,71 +165,74 @@ class DRRMDataset(LeRobotDataset):
             pad_after=self.pad_after,
             npy_feature_keys=self.npy_feature_keys,
             seed=self.seed,
-            val_ratio=0.0,  # 验证集不需要再分割
+            val_ratio=0.0,  # No further splitting for validation
             max_train_episodes=None,
-            use_vggt_input=self.use_vggt_input
         )
-        return val_dataset
 
-    def get_normalizer(self, **kwargs) -> LinearNormalizer:
-        # 组合成各种normalizer
+    def get_normalizer(self, **kwargs):
+        """Create normalizer for all dataset features"""
         normalizer = LinearNormalizer()
-        for key in self.npy_feature_keys:
-            stat = {
-                    'min': np.float32([-1e8]),
-                    'max': np.float32([1e8]),
-                    'mean': np.float32([0]),
-                    'std': np.float32([1e8]),
-            }
-            normalizer[key] = get_identity_normalizer_from_stat(stat)
-
         
+        # Add VGGT feature normalizers (identity)
+        for key in self.npy_feature_keys:
+            normalizer[key] = self._create_identity_normalizer()
+        
+        # Add dataset feature normalizers
         for key in self.dataset_meta.names.keys():
-            if key not in self.default_keys:
-                if self.dataset_meta.features[key]['dtype'] in ['image', 'video']:
-                    normalizer[key] = get_image_range_normalizer()
-                elif self.dataset_meta.features[key]['dtype'] == 'string':
-                    stat = {
-                            'min': np.float32([-1e8]),
-                            'max': np.float32([1e8]),
-                            'mean': np.float32([0]),
-                            'std': np.float32([1e8]),
-                        }
-                    normalizer[key] = get_identity_normalizer_from_stat(stat)
-                else:
-                    stat = {
-                        'min': self.dataset_meta.stats[key]['min'].astype(np.float32),
-                        'max': self.dataset_meta.stats[key]['max'].astype(np.float32),
-                        'mean': self.dataset_meta.stats[key]['mean'].astype(np.float32),
-                        'std': self.dataset_meta.stats[key]['std'].astype(np.float32),
-                    }
-                    normalizer[key] = get_range_normalizer_from_stat(stat)
+            if key in self.DEFAULT_KEYS:
+                continue
+                
+            feature = self.dataset_meta.features[key]
+            normalizer[key] = self._create_feature_normalizer(key, feature)
+                
         return normalizer
+
+    def _create_identity_normalizer(self):
+        """Create identity normalizer with wide bounds"""
+        stat = {
+            'min': np.float32([-1e8]),
+            'max': np.float32([1e8]),
+            'mean': np.float32([0]),
+            'std': np.float32([1e8]),
+        }
+        return get_identity_normalizer_from_stat(stat)
+
+    def _create_feature_normalizer(self, key, feature):
+        """Create appropriate normalizer based on feature type"""
+        if feature['dtype'] in ['image', 'video']:
+            return get_image_range_normalizer()
+        elif feature['dtype'] == 'string':
+            return self._create_identity_normalizer()
+        else:
+            stats = self.dataset_meta.stats[key]
+            stat = {
+                'min': stats['min'].astype(np.float32),
+                'max': stats['max'].astype(np.float32),
+                'mean': stats['mean'].astype(np.float32),
+                'std': stats['std'].astype(np.float32),
+            }
+            return get_range_normalizer_from_stat(stat)
     
-    def _query_npy_frame(self, query_indices: dict[str, list[int]], ep_idx: int) -> dict:
+    def _query_npy_frame(self, query_indices, ep_idx):
+        """Load npy features from numpy files"""
+        if not self.npy_feature_keys or query_indices is None:
+            return {}
+            
         relative_ep_idx = self.ep_idx_to_arr_idx[ep_idx]
-        indices = [idx - self.episode_data_index["from"][relative_ep_idx].item() for idx in query_indices['action']]
-        lerobot_root = self.dataset_meta.root
+        indices = [
+            idx - self.episode_data_index["from"][relative_ep_idx].item() 
+            for idx in query_indices['action']
+        ]
+        
         result = {}
+        lerobot_root = self.dataset_meta.root
+        
         for key in self.npy_feature_keys:
             file_path = lerobot_root / f"npy/{key}/{ep_idx}.npy"
             arr = np.load(file_path, mmap_mode='r')
             result[key] = arr[indices].copy()
+            
         return result
-
-    # def _query_hf_dataset(self, query_indices: dict[str, list[int]]) -> dict:
-    #     result = {}
-    #     import time
-
-        
-    #     for key, q_idx in query_indices.items():
-    #         if self.dataset_meta.features[key]['dtype'] not in ['image', 'video']:
-    #             if len(self.dataset_meta.features[key]['shape']) >= 2:
-    #                 result[key] = torch.stack(self.hf_dataset.select(q_idx)[key]).squeeze(-1)
-    #             else:
-    #                 result[key] = torch.stack(self.hf_dataset.select(q_idx)[key])
-
-    #     return result
 
     def save_episode(self, episode_data: dict | None = None) -> None:
         """
@@ -287,55 +309,53 @@ class DRRMDataset(LeRobotDataset):
         if not episode_data:  # Reset the buffer
             self.episode_buffer = self.create_episode_buffer()
 
-    def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
-        """
-        重写__getitem__方法,组合两个父类的功能
-        """
-        # 首先调用LeRobotDataset的__getitem__获取原始数据
-        # import time 
-        # start_time = time.time()
-        item = self.hf_dataset[idx]
-        ep_idx = item["episode_index"].item()
-        # current_time = time.time()
-        # print(f"Query HF dataset elapsed time: {current_time - start_time:.4f} seconds")
+    def __getitem__(self, idx):
+        """Get dataset item with all features"""
+        # Get base item from HuggingFace dataset
+        item = self.hf_dataset[idx] # idx是新数据集上的index
+        ep_idx = item["episode_index"].item() # 根据item["episode_index"]找到旧数据集上的episode_index
+        
+        # Query temporal data if needed
         query_indices = None
         if self.delta_indices is not None:
             query_indices, padding = self._get_query_indices(idx, self.ep_idx_to_arr_idx[ep_idx])
             query_result = self._query_hf_dataset(query_indices)
-            item = {**item, **padding}
-            for key, val in query_result.items():
-                item[key] = val
+            item.update(padding)
+            item.update(query_result)
 
+        # Add npy features from numpy files
         npy_frame = self._query_npy_frame(query_indices, ep_idx)
-        item = {**npy_frame, **item}
+        item.update(npy_frame)
+        
+        # Add video frames if needed
         if len(self.meta.video_keys) > 0:
             current_ts = item["timestamp"].item()
             query_timestamps = self._get_query_timestamps(current_ts, query_indices)
             video_frames = self._query_videos(query_timestamps, ep_idx)
-            item = {**video_frames, **item}
+            item.update(video_frames)
 
+        # Apply image transforms
         if self.image_transforms is not None:
-            image_keys = self.meta.camera_keys
-            for cam in image_keys:
+            for cam in self.meta.camera_keys:
                 item[cam] = self.image_transforms(item[cam])
 
-        # Add task as a string
+        # Add task string
         task_idx = item["task_index"].item()
         item["task"] = self.meta.tasks[task_idx]
-        # 然后按照BaseDataset的期望格式重新组织数据
+        
+        # Organize into expected output format
+        return self._organize_item_data(item)
+
+    def _organize_item_data(self, item):
+        """Organize raw item data into expected format"""
         data = {
-            'obs': {
-                'agent_pos': item['agent_pos'],
-            },
+            'obs': {},
             'action': item['action'],
         }
-        if self.use_vggt_input:
-            data['obs']['head_cam'] = item['head_cam'] 
-        else:
-            data['obs']['point_cloud'] = item['point_cloud']
 
-        for key in self.npy_feature_keys:
-            if key in item:
+        # Add features to observations
+        for key in item:
+            if key in {*self.npy_feature_keys, *self.dataset_meta.names.keys()} and key not in {*self.DEFAULT_KEYS, 'action'}:
                 data['obs'][key] = item[key]
-        # print(f"Query data elapsed time: {time.time() - start_time:.4f} seconds")
+                
         return data
