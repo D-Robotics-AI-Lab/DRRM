@@ -20,7 +20,6 @@ from safetensors.torch import load_model
 
 from drrm.models.ema_model import EMAModel
 
-
 if is_wandb_available():
     import wandb
 
@@ -121,16 +120,40 @@ def train(args, logger):
     
     # Dataset and DataLoaders creation
     train_dataset = hydra.utils.instantiate(args.train_dataset)
-    eval_dataset = hydra.utils.instantiate(args.eval_dataset)
+    if hasattr(train_dataset, "get_validation_dataset"):
+        eval_dataset = train_dataset.get_validation_dataset()
+    else:
+        eval_dataset = hydra.utils.instantiate(args.eval_dataset)
 
-    train_dataloader = torch.utils.data.DataLoader(
-        train_dataset,
-        batch_size=args.train_batch_size,
-        shuffle=True,
-        num_workers=args.dataloader_num_workers,
-        pin_memory=True,
-        persistent_workers=True,
-    )
+    if hasattr(args, "train_sampler"):
+        from torch.utils.data import RandomSampler, BatchSampler
+        sampler = RandomSampler(
+            train_dataset,
+            replacement=args.train_sampler.sampler.replacement,
+            num_samples=len(train_dataset) * args.train_sampler.sampler.num_epochs,
+        )
+        batch_sampler = BatchSampler(
+            sampler,
+            batch_size=args.train_sampler.batch_size,
+            drop_last=args.train_sampler.drop_last,
+        )
+        train_dataloader = torch.utils.data.DataLoader(
+            train_dataset,
+            batch_sampler=batch_sampler,
+            num_workers=args.dataloader_num_workers,
+            pin_memory=True,
+            persistent_workers=False,
+        )
+    else:    
+        train_dataloader = torch.utils.data.DataLoader(
+            train_dataset,
+            batch_size=args.train_batch_size,
+            shuffle=True,
+            num_workers=args.dataloader_num_workers,
+            pin_memory=True,
+            persistent_workers=False,
+        )
+
     sample_dataloader = torch.utils.data.DataLoader(
         eval_dataset,
         batch_size=args.sample_batch_size,
