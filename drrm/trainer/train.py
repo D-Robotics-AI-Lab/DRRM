@@ -23,17 +23,17 @@ from drrm.models.ema_model import EMAModel
 if is_wandb_available():
     import wandb
 
-
+# logger 是经过accelerate.logging.get_logger包装的logger
 def train(args, logger):
     logging_dir = Path(args.output_dir, args.logging_dir)
 
-    accelerator_project_config = ProjectConfiguration(total_limit=args.checkpoints_total_limit)
+    accelerator_project_config = ProjectConfiguration(total_limit=args.checkpoints_total_limit) # 限制checkpoint数量: 40
     accelerator = Accelerator(
         deepspeed_plugin=DeepSpeedPlugin(
             hf_ds_config=args.deepspeed
         ) if args.deepspeed is not None else None,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
-        mixed_precision=args.mixed_precision,
+        mixed_precision=args.mixed_precision,  # TODO:尝试各种精度的训练时间
         log_with=args.report_to,
         project_dir=logging_dir,
         project_config=accelerator_project_config,
@@ -49,6 +49,9 @@ def train(args, logger):
         datefmt="%m/%d/%Y %H:%M:%S",
         level=logging.INFO,
     )
+    # Log the accelerator state information on all processes for debugging
+    # This includes information about distributed training setup, device allocation,
+    # mixed precision settings, and other accelerator configuration details
     logger.info(accelerator.state, main_process_only=False)
     if accelerator.is_local_main_process:
         transformers.utils.logging.set_verbosity_warning()
@@ -102,7 +105,7 @@ def train(args, logger):
     # cf https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices
     if args.allow_tf32:
         torch.backends.cuda.matmul.allow_tf32 = True
-
+    #TODO: delete this learning rate scaling
     if args.scale_lr:
         args.learning_rate = (
             args.learning_rate * args.gradient_accumulation_steps * args.train_batch_size * accelerator.num_processes
@@ -129,12 +132,23 @@ def train(args, logger):
     else:
         eval_dataset = hydra.utils.instantiate(args.eval_dataset)
 
+    if hasattr(args, "total_batch_size") and args.total_batch_size is not None:
+        args.train_batch_size = args.total_batch_size // accelerator.num_processes
+        args.sample_batch_size = args.total_batch_size // accelerator.num_processes
+
     if hasattr(args, "train_sampler"):
         from torch.utils.data import RandomSampler, BatchSampler
+        # TODO:兼容到num_epochs
+        # Calculate total training steps for the sampler
+        if hasattr(args, 'num_train_epochs') and args.num_train_epochs is not None:
+            train_steps = args.num_train_epochs * len(train_dataset)
+        else:
+            train_steps = args.max_train_steps
+        
         sampler = RandomSampler(
             train_dataset,
             replacement=args.train_sampler.sampler.replacement,
-            num_samples=args.max_train_steps,
+            num_samples=train_steps,
         )
         batch_sampler = BatchSampler(
             sampler,
@@ -157,7 +171,7 @@ def train(args, logger):
             pin_memory=True,
             persistent_workers=False,
         )
-
+    # TODO: sample_dataloader 的名称
     sample_dataloader = torch.utils.data.DataLoader(
         eval_dataset,
         batch_size=args.sample_batch_size,
@@ -168,17 +182,18 @@ def train(args, logger):
     )
 
     # Scheduler and math around the number of training steps.
-    overrode_max_train_steps = False
     num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
-    if args.max_train_steps is None:
-        args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
-        overrode_max_train_steps = True
-
+    max_train_steps = num_update_steps_per_epoch
+    # TODO: 设置warmup 比例，推荐值5%
+    if hasattr(args, 'lr_warmup_ratio') and args.lr_warmup_ratio is not None:
+        lr_warmup_steps = int(args.lr_warmup_ratio * max_train_steps)
+    else:
+        lr_warmup_steps = args.lr_warmup_steps
     lr_scheduler = get_scheduler(
         args.lr_scheduler,
         optimizer=optimizer,
-        num_warmup_steps=args.lr_warmup_steps * args.gradient_accumulation_steps,
-        num_training_steps=args.max_train_steps * args.gradient_accumulation_steps,
+        num_warmup_steps=lr_warmup_steps,
+        num_training_steps=max_train_steps * args.gradient_accumulation_steps,
         num_cycles=args.lr_num_cycles,
         power=args.lr_power,
     )
@@ -193,10 +208,9 @@ def train(args, logger):
 
     # We need to recalculate our total training steps as the size of the training dataloader may have changed.
     num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
-    if overrode_max_train_steps:
-        args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
+    max_train_steps = num_update_steps_per_epoch
     # Afterwards we recalculate our number of training epochs
-    args.num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
+    num_train_epochs = math.ceil(max_train_steps / num_update_steps_per_epoch)
 
     # We need to initialize the trackers we use, and also store our configuration.
     # The trackers initializes automatically on the main process.
@@ -209,11 +223,11 @@ def train(args, logger):
     logger.info("***** Running training *****")
     logger.info(f"  Num examples = {len(train_dataset)}")
     logger.info(f"  Num batches each epoch = {len(train_dataloader)}")
-    logger.info(f"  Num Epochs = {args.num_train_epochs}")
+    logger.info(f"  Num Epochs = {num_train_epochs}")
     logger.info(f"  Instantaneous batch size per device = {args.train_batch_size}")
     logger.info(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
     logger.info(f"  Gradient Accumulation steps = {args.gradient_accumulation_steps}")
-    logger.info(f"  Total optimization steps = {args.max_train_steps}")
+    logger.info(f"  Total optimization steps = {max_train_steps}")
     global_step = 0
     first_epoch = 0
 
@@ -251,11 +265,11 @@ def train(args, logger):
             resume_step = resume_global_step % (num_update_steps_per_epoch * args.gradient_accumulation_steps)
 
     # Only show the progress bar once on each machine.
-    progress_bar = tqdm(range(global_step, args.max_train_steps), disable=not accelerator.is_local_main_process)
+    progress_bar = tqdm(range(global_step, max_train_steps), disable=not accelerator.is_local_main_process)
     progress_bar.set_description("Steps")
 
     loss_for_log = {}
-    for epoch in range(first_epoch, args.num_train_epochs):
+    for epoch in range(first_epoch, num_train_epochs):
 
         policy_model.train()
         
@@ -271,10 +285,11 @@ def train(args, logger):
                 accelerator.backward(loss)
 
                 # 打印一些本身参数有梯度，但是backward发现没有梯度的参数
-                for name, param in policy_model.named_parameters():
-                    if param.requires_grad and param.grad is None:
-                        print("未获得梯度的参数:", name, param.shape)
+                # for name, param in policy_model.named_parameters():
+                #     if param.requires_grad and param.grad is None:
+                #         print("未获得梯度的参数:", name, param.shape)
                 if accelerator.sync_gradients:
+                    # TODO: 梯度裁剪
                     params_to_clip = policy_model.parameters()
                     accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
                 
@@ -306,7 +321,7 @@ def train(args, logger):
             # logger.info(logs)
             accelerator.log(logs, step=global_step)
 
-            if global_step >= args.max_train_steps:
+            if global_step >= max_train_steps:
                 break
 
     # Create the pipeline using using the trained modules and save it.
