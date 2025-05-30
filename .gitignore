@@ -6,6 +6,9 @@ checkpoints/
 datasets/
 third_party/
 .vscode/
+eval_sim/robotwin/aloha_maniskill_sim/
+eval_sim/robotwin/models/
+eval_video/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -21,7 +21,7 @@ max_train_steps: 20000
 checkpoints_total_limit: 40
 # Whether training should be resumed from a previous checkpoint. Use a path saved by
 # `--checkpointing_period`, or `"latest"` to automatically select the last available checkpoint.
-resume_from_checkpoint: null
+resume_from_checkpoint: /root/data/projects/embodiedai/RoboticsManipulation/RoboticsManipulation/checkpoints/dp_baseline/checkpoint-10000
 # Number of updates steps to accumulate before performing a backward/update pass.
 gradient_accumulation_steps: 1
 # Whether or not to use gradient checkpointing to save memory at the expense of slower backward pass.
