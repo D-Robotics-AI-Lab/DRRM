@@ -67,7 +67,7 @@ seed: 42
 checkpointing_period: 1000
 # Run sampling every X steps. During the sampling phase, the model will sample a trajectory 
 # and report the error between the sampled trajectory and groud-truth trajectory in the training batch.
-sample_period: 50
+sample_period: 5000
 # Power factor of the polynomial scheduler.
 lr_power: 1.0
 # Save more memory by using setting grads to None instead of zero. Be aware, that this changes certain behaviors, 

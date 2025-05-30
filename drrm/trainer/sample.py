@@ -21,7 +21,7 @@ def log_sample_res(
         if step >= args.num_sample_batches:
             break
         
-        loss = rdt.compute_loss(batch)
+        loss = rdt(batch)
         val_losses.append(loss.item())
         
     if len(val_losses) > 0:

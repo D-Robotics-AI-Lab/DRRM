@@ -42,5 +42,5 @@ python scripts/robotwin/robotwin2lerobot4dp_vggt.py --src_dir data/dual_bottles_
 ```
 ## 运行
 ```
-accelerate launch main.py --config-name=test_policy.yaml
+accelerate launch main.py --config-name=dp_baseline.yaml
 ```

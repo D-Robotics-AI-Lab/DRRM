@@ -11,9 +11,10 @@ from drrm.models.policy.diffusion_policy.diffusion.conditional_unet1d import Con
 from drrm.models.policy.diffusion_policy.diffusion.mask_generator import LowdimMaskGenerator
 from drrm.models.policy.diffusion_policy.common.normalizer import LinearNormalizer
 from drrm.models.policy.diffusion_policy.common.pytorch_util import dict_apply
+from drrm.models.policy.diffusion_policy.common.module_attr_mixin import ModuleAttrMixin
 
 
-class DiffusionUnetImagePolicy(BasePolicy):
+class DiffusionUnetImagePolicy(BasePolicy, ModuleAttrMixin):
     def __init__(self, 
             shape_meta: dict,
             noise_scheduler: DDPMScheduler,
