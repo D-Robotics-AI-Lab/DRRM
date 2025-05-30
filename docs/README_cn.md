@@ -5,10 +5,17 @@
 conda create -n robotics_manipulation python=3.10
 conda activate robotics_manipulation
 
+# install lerobot
+git clone https://github.com/huggingface/lerobot.git
+cd lerobot
+pip install build
+python -m build
+pip install dist/lerobot-0.1.0-py3-none-any.whl
+
 安装vggt
+vggt中需要依赖numpy<2, 与lerobot冲突
 git clone https://github.com/facebookresearch/vggt.git
 cd vggt
-pip install -r requirements.txt
 pip install -e .
 cd ..
 
@@ -16,6 +23,11 @@ cd ..
 git clone --recurse-submodules https://github.com/D-Robotics-AI-Lab/RoboticsManipulation.git
 cd RoboticsManipulation
 pip install -e .
+cd ..
+
+
+
+
 
 ```
 ## 项目结构说明
