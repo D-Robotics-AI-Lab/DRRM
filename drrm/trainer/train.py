@@ -19,6 +19,7 @@ from tqdm.auto import tqdm
 from safetensors.torch import load_model
 
 from drrm.models.ema_model import EMAModel
+from .sample import log_sample_res
 
 if is_wandb_available():
     import wandb
@@ -293,7 +294,16 @@ def train(args, logger):
 
                 if args.sample_period > 0 and global_step % args.sample_period == 0:
                     logger.info(f"Sampling at step {global_step}")
-                    # TODO:
+                    sample_loss_for_log = log_sample_res(
+                        policy_model,    # We do not use EMA currently
+                        args,
+                        accelerator,
+                        weight_dtype,
+                        sample_dataloader,
+                        logger,
+                    )
+                    logger.info(sample_loss_for_log)
+                    accelerator.log(sample_loss_for_log, step=global_step)
             
             logs = {"loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
             progress_bar.set_postfix(**logs)

@@ -15,7 +15,7 @@ num_sample_batches: 2
 # Number of training epochs.
 num_train_epochs: 10
 # Total number of training steps to perform.  If provided, overrides num_train_epochs.
-max_train_steps: 200000
+max_train_steps: 20000
 # Max number of checkpoints to store. Passed as `total_limit` to the `Accelerator` `ProjectConfiguration`.
 # See Accelerator::save_state https://huggingface.co/docs/accelerate/package_reference/accelerator#accelerate.Accelerator.save_state for more details
 checkpoints_total_limit: 40
@@ -67,7 +67,7 @@ seed: 42
 checkpointing_period: 1000
 # Run sampling every X steps. During the sampling phase, the model will sample a trajectory 
 # and report the error between the sampled trajectory and groud-truth trajectory in the training batch.
-sample_period: 500
+sample_period: 50
 # Power factor of the polynomial scheduler.
 lr_power: 1.0
 # Save more memory by using setting grads to None instead of zero. Be aware, that this changes certain behaviors, 
@@ -158,7 +158,7 @@ ema:
 
 train_dataset:
   _target_: drrm.datasets.drrm_dataset.DRRMDataset
-  root: /root/data/projects/embodiedai/roboticsmanipulation/RoboticsManipulation/data/lerobot/dual_bottles_pick_easy_D435
+  root: /root/data/projects/embodiedai/RoboticsManipulation/RoboticsManipulation/data/lerobot/dual_bottles_pick_easy_D435
   repo_id: D-robotics/dual_bottles_pick_easy_D435
   horizon: 8
   pad_before: 3
@@ -169,8 +169,8 @@ train_dataset:
   # - spatial_tokens_23
   # - image_tokens_pos
   dataset_metadata:
-    _target_: drrm.datasets.drrm_dataset.LeRobotDatasetMetadata
-    root: /root/data/projects/embodiedai/roboticsmanipulation/RoboticsManipulation/data/lerobot/dual_bottles_pick_easy_D435
+    _target_: lerobot.common.datasets.lerobot_dataset.LeRobotDatasetMetadata
+    root: /root/data/projects/embodiedai/RoboticsManipulation/RoboticsManipulation/data/lerobot/dual_bottles_pick_easy_D435
     repo_id: D-robotics/dual_bottles_pick_hard_D435
 
 train_sampler:
