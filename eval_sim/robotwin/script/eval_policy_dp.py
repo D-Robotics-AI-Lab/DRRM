@@ -267,9 +267,9 @@ def main(cfg: OmegaConf):
     suc_nums.append(suc_num)
 
     topk_success_rate = sorted(suc_nums, reverse=True)[:topk]
-    save_dir = Path(f'eval_result/dp/{task_name}_{usr_args.head_camera_type}/{usr_args.expert_data_num}')
+    save_dir = Path(f'eval_result/dp/{cfg.task_name}/{cfg.head_camera_type}/{cfg.expert_data_num}')
     save_dir.mkdir(parents=True, exist_ok=True)
-    file_path = save_dir / f'ckpt_{checkpoint_num}_seed_{seed}.txt'
+    file_path = save_dir / f'ckpt_{cfg.checkpoint_dir}_seed_{cfg.seed}.txt'
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     with open(file_path, 'w') as file:
