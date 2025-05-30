@@ -329,7 +329,7 @@ def train(args, logger):
     if accelerator.is_main_process:
         accelerator.unwrap_model(policy_model).save_pretrained(args.output_dir)
         ema_save_path = os.path.join(args.output_dir, f"ema")
-        accelerator.save_model(ema_model, ema_save_path)
+        accelerator.save_model(ema_policy_model, ema_save_path)
         
         logger.info(f"Saved Model to {args.output_dir}")
 
