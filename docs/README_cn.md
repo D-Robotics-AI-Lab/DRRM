@@ -5,7 +5,15 @@
 conda create -n robotics_manipulation python=3.10
 conda activate robotics_manipulation
 
-git clone https://github.com/D-Robotics-AI-Lab/RoboticsManipulation.git
+安装vggt
+git clone https://github.com/facebookresearch/vggt.git
+cd vggt
+pip install -r requirements.txt
+pip install -e .
+cd ..
+
+安装RoboticsManipulation
+git clone --recurse-submodules https://github.com/D-Robotics-AI-Lab/RoboticsManipulation.git
 cd RoboticsManipulation
 pip install -e .
 
