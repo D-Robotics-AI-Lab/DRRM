@@ -1,37 +1,29 @@
 import copy
 import logging
 import os
-from pathlib import Path
 import hydra
+from tqdm.auto import tqdm
+from pathlib import Path
 
-import diffusers
 import torch
 from torch.utils.data import RandomSampler, BatchSampler
 import transformers
-from transformers.models.deit.image_processing_deit import valid_images
+import diffusers
+from diffusers.optimization import get_scheduler
 from accelerate import Accelerator
 from accelerate.utils import ProjectConfiguration, set_seed
-from diffusers.optimization import get_scheduler
-from diffusers.utils import is_wandb_available
-from tqdm.auto import tqdm
 from safetensors.torch import load_model
-
-from drrm.models.ema_model import EMAModel
-
-
-if is_wandb_available():
-    import wandb
 
 @torch.no_grad()
 def log_sample_res(policy_model, args, dataloader, logger):
-    logger.info(f"Running sampling for {args.num_val_batches} batches...")
+    logger.info(f"Running sampling for {args.num_sample_batches} batches...")
 
     policy_model.eval()
     
     loss_for_log = {}
     val_losses = list()
     for step, batch in enumerate(dataloader):
-        if step >= args.num_val_batches:
+        if step >= args.num_sample_batches:
             break
         
         loss = policy_model(batch)
@@ -47,25 +39,19 @@ def log_sample_res(policy_model, args, dataloader, logger):
 
     return dict(loss_for_log)
 
-def train(args, logger):
-    accelerator = Accelerator(
-        gradient_accumulation_steps=args.gradient_accumulation_steps,
-        mixed_precision=args.mixed_precision,
-        log_with=args.report_to,
-        project_dir=Path(args.output_dir, args.logging_dir),
-        project_config=ProjectConfiguration(total_limit=args.checkpoints_total_limit),
-    )
 
-    if args.report_to == "wandb":
-        if not is_wandb_available():
-            raise ImportError("Make sure to install wandb if you want to use it for logging during training.")
+def train(args, logger):
+    # Initialize accelerator
+    accelerator = Accelerator(
+        gradient_accumulation_steps=args.accelerator.gradient_accumulation_steps,
+        mixed_precision=args.accelerator.mixed_precision,
+        log_with=args.accelerator.report_to,
+        project_dir=Path(args.output_dir, args.logging_dir),
+        project_config=ProjectConfiguration(total_limit=args.accelerator.checkpoints_total_limit),
+    )
 
     # Make one log on every process with the configuration for debugging.
-    logging.basicConfig(
-        format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-        datefmt="%m/%d/%Y %H:%M:%S",
-        level=logging.INFO,
-    )
+    logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s - %(message)s", datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
     logger.info(accelerator.state, main_process_only=False)
     if accelerator.is_local_main_process:
         transformers.utils.logging.set_verbosity_warning()
@@ -78,27 +64,20 @@ def train(args, logger):
     if args.seed is not None:
         set_seed(args.seed)
 
-    # For mixed precision training we cast the text_encoder and vae weights to half-precision
-    # as these models are only used for inference, keeping weights in full precision is not required.
+    # Get weight dtype
     weight_dtype = torch.float32
     if accelerator.mixed_precision == "fp16":
         weight_dtype = torch.float16
     elif accelerator.mixed_precision == "bf16":
         weight_dtype = torch.bfloat16
 
-    # Policy Model creation
+    # Create policy model
     policy_model = hydra.utils.instantiate(args.model)
     policy_model.to(accelerator.device, dtype=weight_dtype)
 
+    # Create EMA model
     ema_policy_model = copy.deepcopy(policy_model)
-    ema_model = EMAModel(
-        ema_policy_model,
-        update_after_step=args.ema.update_after_step,
-        inv_gamma=args.ema.inv_gamma,
-        power=args.ema.power,
-        min_value=args.ema.min_value,
-        max_value=args.ema.max_value,
-    )
+    ema_model = hydra.utils.instantiate(args.ema, model=ema_policy_model)
 
     # create custom saving & loading hooks so that `accelerator.save_state(...)` serializes in a nice format
     # which ensure saving model in huggingface format (config.json + pytorch_model.bin)
@@ -111,67 +90,60 @@ def train(args, logger):
 
     accelerator.register_save_state_pre_hook(save_model_hook)
 
-    if args.gradient_checkpointing:
-        # TODO: 
-        raise NotImplementedError("Gradient checkpointing is not yet implemented.")
-
     # Enable TF32 for faster training on Ampere GPUs,
     # cf https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices
     if args.allow_tf32:
         torch.backends.cuda.matmul.allow_tf32 = True
 
     # Optimizer creation
-    params_to_optimize = policy_model.parameters()
-    optimizer = torch.optim.AdamW(
-        params_to_optimize,
-        lr=args.learning_rate,
-        betas=(args.adam_beta1, args.adam_beta2),
-        weight_decay=args.adam_weight_decay,
-        eps=args.adam_epsilon,
-    )
-    
+    optimizer = hydra.utils.instantiate(args.optimizer, params=policy_model.parameters())
+
     # Dataset and DataLoaders creation
     train_dataset = hydra.utils.instantiate(args.train_dataset)
+    # Get normalizer
     if hasattr(train_dataset, "get_normalizer"):
         normalizer = train_dataset.get_normalizer()
         policy_model.set_normalizer(normalizer)
         ema_policy_model.set_normalizer(normalizer)
+    # Get validation dataset from train dataset
     val_dataset = train_dataset.get_validation_dataset()
+    # Set sampler and batch sampler
     sampler = RandomSampler(
         train_dataset,
         replacement=True,
-        num_samples=len(train_dataset) * args.num_train_epochs,
+        num_samples=len(train_dataset) * args.num_epochs,
     )
     batch_sampler = BatchSampler(
         sampler,
-        batch_size=args.train_batch_size,
-        drop_last=True,
+        batch_size=args.train_dataloader.batch_size,
+        drop_last=args.train_dataloader.drop_last,
     )
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
         batch_sampler=batch_sampler,
-        num_workers=args.dataloader_num_workers,
+        num_workers=args.train_dataloader.num_workers,
         pin_memory=True,
         persistent_workers=False,
     )
     val_dataloader = torch.utils.data.DataLoader(
         val_dataset,
-        batch_size=args.val_batch_size,
-        shuffle=False,
-        num_workers=args.dataloader_num_workers,
+        batch_size=args.val_dataloader.batch_size,
+        shuffle=args.val_dataloader.shuffle,
+        num_workers=args.val_dataloader.num_workers,
         pin_memory=True,
         persistent_workers=True,
     )
 
-    max_iters = len(train_dataloader)
+    # compute max_train_steps
+    max_train_steps = len(train_dataloader)
 
     lr_scheduler = get_scheduler(
-        args.lr_scheduler,
+        args.scheduler.lr_scheduler,
         optimizer=optimizer,
-        num_warmup_steps=args.lr_warmup_steps * max_iters,
-        num_training_steps=max_iters,
-        num_cycles=args.lr_num_cycles,
-        power=args.lr_power,
+        num_warmup_steps=args.scheduler.lr_warmup_steps * max_train_steps,
+        num_training_steps=max_train_steps,
+        num_cycles=args.scheduler.lr_num_cycles,
+        power=args.scheduler.lr_power,
     )
 
     # Prepare everything with our `accelerator`.
@@ -181,22 +153,20 @@ def train(args, logger):
 
     ema_policy_model.to(accelerator.device, dtype=weight_dtype)                                                                             
 
-
     # We need to initialize the trackers we use, and also store our configuration.
     # The trackers initializes automatically on the main process.
     if accelerator.is_main_process:
-        accelerator.init_trackers("RoboticsManipulation", config=dict(args))
+        accelerator.init_trackers("RoboticsManipulation")
 
     # Train!
     logger.info("***** Running training *****")
     logger.info(f"  Num examples = {len(train_dataset)}")
-    logger.info(f"  Num iters = {args.num_train_epochs * len(train_dataset)}")
-    logger.info(f"  Num steps = {max_iters}")
-    logger.info(f"  Instantaneous batch size per device = {args.train_batch_size}")
-    logger.info(f"  Gradient Accumulation steps = {args.gradient_accumulation_steps}")
-    logger.info(f"  Total train batch size (w. parallel, distributed & accumulation) = {args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps}")
-    logger.info(f"  Total optimization steps = {max_iters / args.gradient_accumulation_steps}")
+    logger.info(f"  Instantaneous batch size per device = {args.train_dataloader.batch_size}")
+    logger.info(f"  Num train steps (w. len(train_dataset), num_epochs & train_batch_size) = {max_train_steps}")
+    logger.info(f"  Total train batch size (w. parallel, distributed & accumulation) = {args.train_dataloader.batch_size * args.accelerator.gradient_accumulation_steps * accelerator.num_processes}")
+    logger.info(f"  Total optimization steps = {max_train_steps}")
     global_step = 0
+    first_epoch = 0
 
     # Potentially load in the weights and states from a previous save
     if args.resume_from_checkpoint:
@@ -217,29 +187,23 @@ def train(args, logger):
         else:
             accelerator.print(f"Resuming from checkpoint {path}")
             try:
-                accelerator.load_state(os.path.join(args.output_dir, path), strict=False)
+                accelerator.load_state(os.path.join(args.output_dir, path)) # strict=False
             except:
-                # load deepspeed's state_dict
+                # TODO: find a good way to load the state_dict
                 logger.info("Resuming training state failed. Attempting to only load from model checkpoint.")
-                checkpoint = torch.load(os.path.join(args.output_dir, path, "pytorch_model", "mp_rank_00_model_states.pt"))
-                policy_model.module.load_state_dict(checkpoint["module"])
+                load_model(policy_model, os.path.join(args.output_dir, path, "model.safetensors"), strict=False)
                 
             load_model(ema_policy_model, os.path.join(args.output_dir, path, "ema", "model.safetensors"), strict=False)
             global_step = int(path.split("-")[1])
 
-            # normalizer is not load to device by default, so we need to do it manually
-            if hasattr(policy_model, "normalizer"):
-                policy_model.normalizer.to(accelerator.device)
-
-
     # Only show the progress bar once on each machine.
-    progress_bar = tqdm(range(0, max_iters), disable=not accelerator.is_local_main_process)
+    progress_bar = tqdm(range(global_step, max_train_steps), disable=not accelerator.is_local_main_process)
     progress_bar.set_description("Steps")
-    progress_bar.update(global_step)
 
     loss_for_log = {}
+
     policy_model.train()
-        
+
     # Forward and backward...
     for batch in train_dataloader:
         with accelerator.accumulate(policy_model):
@@ -268,7 +232,7 @@ def train(args, logger):
                 accelerator.save_model(ema_policy_model, ema_save_path)
                 logger.info(f"Saved state to {save_path}")
 
-            if args.val_period > 0 and global_step % args.val_period == 0:
+            if args.sample_period > 0 and global_step % args.sample_period == 0:
                 logger.info(f"Sampling at step {global_step}")
                 sample_loss_for_log = log_sample_res(
                     policy_model,    # We do not use EMA currently
@@ -285,7 +249,7 @@ def train(args, logger):
         # logger.info(logs)
         accelerator.log(logs, step=global_step)
 
-        if global_step >= max_iters:
+        if global_step >= max_train_steps:
             break
 
     # Create the pipeline using using the trained modules and save it.
@@ -293,7 +257,7 @@ def train(args, logger):
     if accelerator.is_main_process:
         accelerator.unwrap_model(policy_model).save_pretrained(args.output_dir)
         ema_save_path = os.path.join(args.output_dir, f"ema")
-        accelerator.save_model(ema_policy_model, ema_save_path)
+        accelerator.save_model(ema_model, ema_save_path)
         
         logger.info(f"Saved Model to {args.output_dir}")
 
