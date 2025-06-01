@@ -152,12 +152,12 @@ def train(args, logger):
         batch_sampler=batch_sampler,
         num_workers=args.dataloader_num_workers,
         pin_memory=True,
-        persistent_workers=False,
+        persistent_workers=True,
     )
     val_dataloader = torch.utils.data.DataLoader(
         val_dataset,
         batch_size=args.val_batch_size,
-        shuffle=False,
+        shuffle=True,
         num_workers=args.dataloader_num_workers,
         pin_memory=True,
         persistent_workers=True,
