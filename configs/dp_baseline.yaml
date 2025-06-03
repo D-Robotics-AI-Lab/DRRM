@@ -1,6 +1,6 @@
 # --------------------------- trainer config
 # trainer function
-_target_: drrm.trainer.train_dp.train
+_target_: drrm.trainer.train.train
 # Number of updates steps to accumulate before performing a backward/update pass.
 gradient_accumulation_steps: 1
 # Whether to use mixed precision. Choose between fp16 and bf16 (bfloat16). Bf16 requires PyTorch >= 1.10.and an Nvidia Ampere GPU.  
