@@ -19,6 +19,8 @@ from collections import deque
 import cv2
 import torch
 import yaml
+import shutil
+import os
 
 class Base_task(gym.Env):
 
@@ -1252,7 +1254,8 @@ class Base_task(gym.Env):
 
         eval_video_log = args['eval_video_log']
         video_size = str(args['head_camera_w']) + 'x' + str(args['head_camera_h'])
-        save_dir = 'dp/' + str(args['task_name']) + '_' + str(args['head_camera_type']) + '_' + str(args['expert_data_num']) + '_' + 'seed' + str(args['expert_seed'])
+        save_dir = args['save_dir']
+        os.makedirs(save_dir, exist_ok=True)
 
         if eval_video_log:
             import subprocess
@@ -1422,6 +1425,7 @@ class Base_task(gym.Env):
                     ffmpeg.stdin.close()
                     ffmpeg.wait()
                     del ffmpeg
+                    shutil.move(f'{save_dir}/{self.test_num}.mp4', f'{save_dir}/{self.test_num}_success.mp4')
 
                 return
             
@@ -1435,6 +1439,8 @@ class Base_task(gym.Env):
             ffmpeg.stdin.close()
             ffmpeg.wait()
             del ffmpeg
+            shutil.move(f'{save_dir}/{self.test_num}.mp4', f'{save_dir}/{self.test_num}_fail.mp4')
+
 
     def apply_dp3(self, model, args):
         cnt = 0
@@ -1442,7 +1448,8 @@ class Base_task(gym.Env):
 
         eval_video_log = args['eval_video_log']
         video_size = str(args['head_camera_w']) + 'x' + str(args['head_camera_h'])
-        save_dir = 'dp3/' + str(args['task_name']) + '_' + str(args['head_camera_type']) + '_' + str(args['expert_data_num']) + '/' + 'seed' + str(args['expert_seed'])
+        save_dir = args['save_dir']
+        os.makedirs(save_dir, exist_ok=True)
 
         if eval_video_log:
             import subprocess
@@ -1618,6 +1625,7 @@ class Base_task(gym.Env):
                     ffmpeg.stdin.close()
                     ffmpeg.wait()
                     del ffmpeg
+                    shutil.move(f'{save_dir}/{self.test_num}.mp4', f'{save_dir}/{self.test_num}_success.mp4')
 
                 return
             
@@ -1630,6 +1638,7 @@ class Base_task(gym.Env):
             ffmpeg.stdin.close()
             ffmpeg.wait()
             del ffmpeg
+            shutil.move(f'{save_dir}/{self.test_num}.mp4', f'{save_dir}/{self.test_num}_fail.mp4')
     
     def get_grasp_pose_w_labeled_direction(self, actor, actor_data = DEFAULT_ACTOR_DATA, grasp_matrix = np.eye(4), pre_dis = 0, id = 0):
         actor_matrix = actor.get_pose().to_transformation_matrix()
