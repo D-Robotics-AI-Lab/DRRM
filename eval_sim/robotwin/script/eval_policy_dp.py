@@ -10,7 +10,7 @@ import traceback
 import yaml
 from datetime import datetime
 import importlib
-import dill
+import argparse
 from omegaconf import OmegaConf
 from safetensors.torch import load_model
 
@@ -117,7 +117,8 @@ class DPRunner:
 
 class DP:
     def __init__(self, cfg: OmegaConf):
-        self.policy = hydra.utils.instantiate(cfg.model)
+        model_cfg = OmegaConf.load(cfg.config_name)
+        self.policy = hydra.utils.instantiate(model_cfg.model)
         load_model(self.policy, os.path.join(cfg.checkpoint_dir, "model.safetensors"), strict=False)    # TODO: strict=False
         self.policy.eval()
         self.policy.to('cuda')
@@ -214,62 +215,59 @@ def class_decorator(task_name):
         raise SystemExit("No Task")
     return env_instance
 
-@hydra.main(
-    version_base=None,
-    config_path=str(Path(__file__).parent.parent.parent.parent.joinpath('configs')),
-    config_name='dp_baseline_eval.yaml')
-def main(cfg: OmegaConf):
-    OmegaConf.resolve(cfg)
-
-    with open(Path(parent_directory).parent / 'task_config' / (cfg.task_name + '.yml'), 'r', encoding='utf-8') as f:
-        args = yaml.load(f.read(), Loader=yaml.FullLoader)
+def main(args):
+    with open(Path(parent_directory).parent / 'task_config' / (args.task_name + '.yml'), 'r', encoding='utf-8') as f:
+        cfg = yaml.load(f.read(), Loader=yaml.FullLoader)
     
-    args['head_camera_type'] = cfg.head_camera_type 
-    head_camera_config = get_camera_config(args['head_camera_type'])
-    args['head_camera_fovy'] = head_camera_config['fovy']
-    args['head_camera_w'] = head_camera_config['w']
-    args['head_camera_h'] = head_camera_config['h']
-    head_camera_config = 'fovy' + str(args['head_camera_fovy']) + '_w' + str(args['head_camera_w']) + '_h' + str(args['head_camera_h'])
+    cfg['head_camera_type'] = args.head_camera_type
+    head_camera_config = get_camera_config(cfg['head_camera_type'])
+    cfg['head_camera_fovy'] = head_camera_config['fovy']
+    cfg['head_camera_w'] = head_camera_config['w']
+    cfg['head_camera_h'] = head_camera_config['h']
+    head_camera_config = 'fovy' + str(cfg['head_camera_fovy']) + '_w' + str(cfg['head_camera_w']) + '_h' + str(cfg['head_camera_h'])
     
-    wrist_camera_config = get_camera_config(args['wrist_camera_type'])
-    args['wrist_camera_fovy'] = wrist_camera_config['fovy']
-    args['wrist_camera_w'] = wrist_camera_config['w']
-    args['wrist_camera_h'] = wrist_camera_config['h']
-    wrist_camera_config = 'fovy' + str(args['wrist_camera_fovy']) + '_w' + str(args['wrist_camera_w']) + '_h' + str(args['wrist_camera_h'])
+    cfg['wrist_camera_type'] = args.wrist_camera_type
+    wrist_camera_config = get_camera_config(cfg['wrist_camera_type'])
+    cfg['wrist_camera_fovy'] = wrist_camera_config['fovy']
+    cfg['wrist_camera_w'] = wrist_camera_config['w']
+    cfg['wrist_camera_h'] = wrist_camera_config['h']
+    wrist_camera_config = 'fovy' + str(cfg['wrist_camera_fovy']) + '_w' + str(cfg['wrist_camera_w']) + '_h' + str(cfg['wrist_camera_h'])
 
-    front_camera_config = get_camera_config(args['front_camera_type'])
-    args['front_camera_fovy'] = front_camera_config['fovy']
-    args['front_camera_w'] = front_camera_config['w']
-    args['front_camera_h'] = front_camera_config['h']
-    front_camera_config = 'fovy' + str(args['front_camera_fovy']) + '_w' + str(args['front_camera_w']) + '_h' + str(args['front_camera_h'])
+    cfg['front_camera_type'] = args.front_camera_type
+    front_camera_config = get_camera_config(cfg['front_camera_type'])
+    cfg['front_camera_fovy'] = front_camera_config['fovy']
+    cfg['front_camera_w'] = front_camera_config['w']
+    cfg['front_camera_h'] = front_camera_config['h']
+    front_camera_config = 'fovy' + str(cfg['front_camera_fovy']) + '_w' + str(cfg['front_camera_w']) + '_h' + str(cfg['front_camera_h'])
 
     # output camera config
     print('============= Camera Config =============\n')
-    print('Head Camera Config:\n    type: '+ str(args['head_camera_type']) + '\n    fovy: ' + str(args['head_camera_fovy']) + '\n    camera_w: ' + str(args['head_camera_w']) + '\n    camera_h: ' + str(args['head_camera_h']))
-    print('Wrist Camera Config:\n    type: '+ str(args['wrist_camera_type']) + '\n    fovy: ' + str(args['wrist_camera_fovy']) + '\n    camera_w: ' + str(args['wrist_camera_w']) + '\n    camera_h: ' + str(args['wrist_camera_h']))
-    print('Front Camera Config:\n    type: '+ str(args['front_camera_type']) + '\n    fovy: ' + str(args['front_camera_fovy']) + '\n    camera_w: ' + str(args['front_camera_w']) + '\n    camera_h: ' + str(args['front_camera_h']))
+    print('Head Camera Config:\n    type: '+ str(cfg['head_camera_type']) + '\n    fovy: ' + str(cfg['head_camera_fovy']) + '\n    camera_w: ' + str(cfg['head_camera_w']) + '\n    camera_h: ' + str(cfg['head_camera_h']))
+    print('Wrist Camera Config:\n    type: '+ str(cfg['wrist_camera_type']) + '\n    fovy: ' + str(cfg['wrist_camera_fovy']) + '\n    camera_w: ' + str(cfg['wrist_camera_w']) + '\n    camera_h: ' + str(cfg['wrist_camera_h']))
+    print('Front Camera Config:\n    type: '+ str(cfg['front_camera_type']) + '\n    fovy: ' + str(cfg['front_camera_fovy']) + '\n    camera_w: ' + str(cfg['front_camera_w']) + '\n    camera_h: ' + str(cfg['front_camera_h']))
     print('\n=======================================')
 
-    args['expert_seed'] = cfg.seed
-    args['expert_data_num'] = cfg.expert_data_num
-    args['checkpoint_dir'] = cfg.checkpoint_dir
+    cfg['expert_seed'] = args.seed
+    cfg['checkpoint_dir'] = args.checkpoint_dir
+    cfg['task_name'] = args.task_name
+    cfg['config_name'] = args.config_name
+    cfg['save_dir'] = args.save_dir
+    cfg = OmegaConf.create(cfg)
 
-    task = class_decorator(args['task_name'])
+    task = class_decorator(cfg['task_name'])
 
-    st_seed = 100000 * (1+cfg.seed)
+    st_seed = 100000 * (1+cfg['expert_seed'])
     suc_nums = []
     test_num = 100 
     topk = 1
 
     dp = DP(cfg)
 
-    st_seed, suc_num = test_policy(cfg.task_name, task, args, dp, st_seed, test_num=test_num)
+    st_seed, suc_num = test_policy(cfg.task_name, task, cfg, dp, st_seed, test_num=test_num)
     suc_nums.append(suc_num)
 
     topk_success_rate = sorted(suc_nums, reverse=True)[:topk]
-    save_dir = Path(f'eval_result/dp/{cfg.task_name}/{cfg.head_camera_type}/{cfg.expert_data_num}')
-    save_dir.mkdir(parents=True, exist_ok=True)
-    file_path = save_dir / f'ckpt_{cfg.checkpoint_dir}_seed_{cfg.seed}.txt'
+    file_path = Path(cfg['save_dir']) / f'ckpt_{os.path.basename(cfg.checkpoint_dir)}_seed_{cfg.seed}.txt'
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     with open(file_path, 'w') as file:
@@ -294,4 +292,17 @@ def main(cfg: OmegaConf):
 if __name__ == "__main__":
     from test_render import Sapien_TEST
     Sapien_TEST()
-    main()
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config-name', type=str, default='dp_baseline.yaml', help='config name to load')
+    parser.add_argument('--checkpoint-dir', type=str, default='checkpoints/dp_baseline/checkpoint-20000', help='checkpoint dir')
+    parser.add_argument('--save-dir', type=str, default='eval_result/dp', help='save dir')
+    parser.add_argument('--task-name', type=str, default='dual_bottles_pick_easy', help='task name')
+    parser.add_argument('--head-camera-type', type=str, default='D435', help='head camera type')
+    parser.add_argument('--wrist-camera-type', type=str, default='D435', help='wrist camera type')
+    parser.add_argument('--front-camera-type', type=str, default='D435', help='front camera type')
+    parser.add_argument('--seed', type=int, default=0, help='seed')
+    args = parser.parse_args()
+
+    main(args)
+
