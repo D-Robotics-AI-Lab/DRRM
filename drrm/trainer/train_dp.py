@@ -66,6 +66,9 @@ def train(args, logger):
         datefmt="%m/%d/%Y %H:%M:%S",
         level=logging.INFO,
     )
+    # Log the accelerator state information on all processes for debugging
+    # This includes information about distributed training setup, device allocation,
+    # mixed precision settings, and other accelerator configuration details
     logger.info(accelerator.state, main_process_only=False)
     if accelerator.is_local_main_process:
         transformers.utils.logging.set_verbosity_warning()
@@ -140,7 +143,7 @@ def train(args, logger):
     sampler = RandomSampler(
         train_dataset,
         replacement=True,
-        num_samples=len(train_dataset) * args.num_train_epochs * accelerator.num_processes,
+        num_samples=len(train_dataset) * args.num_train_epochs,
     )
     batch_sampler = BatchSampler(
         sampler,
@@ -163,7 +166,7 @@ def train(args, logger):
         persistent_workers=True,
     )
 
-    max_iters = len(train_dataloader)
+    max_iters = len(train_dataloader) / accelerator.num_processes
 
     lr_scheduler = get_scheduler(
         args.lr_scheduler,
@@ -216,7 +219,7 @@ def train(args, logger):
         else:
             accelerator.print(f"Resuming from checkpoint {path}")
             try:
-                accelerator.load_state(os.path.join(args.output_dir, path), strict=False)
+                accelerator.load_state(os.path.join(args.output_dir, path), strict=False)   # TODO: strict=Fasle取消掉
             except:
                 # load deepspeed's state_dict
                 logger.info("Resuming training state failed. Attempting to only load from model checkpoint.")
