@@ -143,11 +143,11 @@ def train(args, logger):
     sampler = RandomSampler(
         train_dataset,
         replacement=True,
-        num_samples=len(train_dataset) * args.num_train_epochs,
+        num_samples=len(train_dataset) * args.num_train_epochs, # total samples
     )
     batch_sampler = BatchSampler(
         sampler,
-        batch_size=args.train_batch_size,
+        batch_size=args.train_batch_size // accelerator.num_processes,  # batch size per device
         drop_last=True,
     )
     train_dataloader = torch.utils.data.DataLoader(
@@ -160,19 +160,17 @@ def train(args, logger):
     val_dataloader = torch.utils.data.DataLoader(
         val_dataset,
         batch_size=args.val_batch_size,
-        shuffle=True,
+        shuffle=False,
         num_workers=args.dataloader_num_workers,
         pin_memory=True,
         persistent_workers=True,
     )
 
-    max_iters = int(len(train_dataloader) / accelerator.num_processes)
-
     lr_scheduler = get_scheduler(
         args.lr_scheduler,
         optimizer=optimizer,
-        num_warmup_steps=args.lr_warmup_steps * max_iters,
-        num_training_steps=max_iters,
+        num_warmup_steps=args.lr_warmup_ratio * len(train_dataloader),
+        num_training_steps=len(train_dataloader),
         num_cycles=args.lr_num_cycles,
         power=args.lr_power,
     )
@@ -191,15 +189,16 @@ def train(args, logger):
         accelerator.init_trackers("RoboticsManipulation", config=dict(args))
 
     # Train!
+    max_iters = len(train_dataloader)
     logger.info("***** Running training *****")
     logger.info(f"  Num examples = {len(train_dataset)}")
     logger.info(f"  Num epochs = {args.num_train_epochs}")
     logger.info(f"  Total num examples = {len(train_dataset) * args.num_train_epochs}")
-    logger.info(f"  Batch size per device = {args.train_batch_size}")
+    logger.info(f"  Batch size per device = {args.train_batch_size // accelerator.num_processes}")
     logger.info(f"  Num processes = {accelerator.num_processes}")
-    logger.info(f"  Total batch size = {args.train_batch_size * accelerator.num_processes}")
+    logger.info(f"  Total batch size = {args.train_batch_size}")
     logger.info(f"  Num iter per device = {len(train_dataloader)}")
-    logger.info(f"  Num optimization steps per device = {max_iters / args.gradient_accumulation_steps}")
+    logger.info(f"  Num optimization steps per device = {len(train_dataloader) / args.gradient_accumulation_steps}")
     global_step = 0
 
     # Potentially load in the weights and states from a previous save
