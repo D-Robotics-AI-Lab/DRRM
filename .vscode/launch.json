@@ -1,0 +1,58 @@
+{
+    "configurations": [
+        {
+            "name": "train_single",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "args": [
+                // "--config-name", "test_policy"
+                "--config-name", "test_dp3_policy"
+            ],
+            "justMyCode": false,
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "5",
+                "HF_HOME": "/workspace/.cache/huggingface",
+                "HF_LEROBOT_HOME": "/workspace/.cache/huggingface/lerobot"
+            }
+        },
+        {
+            "name": "test_diffusion_unet_policy",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/tests/test_diffusion_unet_policy.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--config-name", "test_diffusion_unet_policy",
+                "head_camera_type=D435"
+            ],
+            "justMyCode": false,
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "5"
+            }
+        },
+        {
+            "name": "test_lerobot_dataset",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/tests/test_lerobot_dataset.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "5"
+            }
+        },
+        {
+            "name": "test_dp3",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/drrm/models/policy/diffusion_policy_3d/dp3.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "5"
+            }
+        },
+    ]
+}

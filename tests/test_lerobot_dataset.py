@@ -20,14 +20,14 @@ HORIZON = 8
 N_OBS_STEPS = 3
 N_ACTION_STEPS = 8
 BATCH_SIZE = 128
-EPOCH_MULTIPLIER = 300      # Number of batches relative to dataset length
+EPOCH_MULTIPLIER = 1     # Number of batches relative to dataset length
 VAL_RATIO = 0.02
 SEED = 45
 
 USE_VGGT_INPUT = True
 VGGT_FEATURE_KEYS = [
-    "spatial_tokens_23",
-    "image_tokens_pos",
+    # "spatial_tokens_23",
+    # "image_tokens_pos",
 ]
 
 REPO_ID = "D-robotics/dual_bottles_pick_hard_D435_emvis"
