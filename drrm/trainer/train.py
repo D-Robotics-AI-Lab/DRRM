@@ -193,11 +193,13 @@ def train(args, logger):
     # Train!
     logger.info("***** Running training *****")
     logger.info(f"  Num examples = {len(train_dataset)}")
-    logger.info(f"  Num iters = {args.num_train_epochs * len(train_dataset)}")
-    logger.info(f"  Instantaneous batch size per device = {args.train_batch_size}")
-    logger.info(f"  Gradient Accumulation steps = {args.gradient_accumulation_steps}")
-    logger.info(f"  Total train batch size (w. parallel, distributed & accumulation) = {args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps}")
-    logger.info(f"  Total optimization steps = {max_iters / args.gradient_accumulation_steps}")
+    logger.info(f"  Num epochs = {args.num_train_epochs}")
+    logger.info(f"  Total num examples = {len(train_dataset) * args.num_train_epochs}")
+    logger.info(f"  Batch size per device = {args.train_batch_size}")
+    logger.info(f"  Num processes = {accelerator.num_processes}")
+    logger.info(f"  Total batch size = {args.train_batch_size * accelerator.num_processes}")
+    logger.info(f"  Num iter per device = {len(train_dataloader)}")
+    logger.info(f"  Num optimization steps per device = {max_iters / args.gradient_accumulation_steps}")
     global_step = 0
 
     # Potentially load in the weights and states from a previous save
