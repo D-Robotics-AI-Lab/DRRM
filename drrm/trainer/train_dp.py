@@ -140,7 +140,7 @@ def train(args, logger):
     sampler = RandomSampler(
         train_dataset,
         replacement=True,
-        num_samples=len(train_dataset) * args.num_train_epochs,
+        num_samples=len(train_dataset) * args.num_train_epochs * accelerator.num_processes,
     )
     batch_sampler = BatchSampler(
         sampler,
