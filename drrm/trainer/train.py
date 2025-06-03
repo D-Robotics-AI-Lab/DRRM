@@ -166,7 +166,7 @@ def train(args, logger):
         persistent_workers=True,
     )
 
-    max_iters = len(train_dataloader) / accelerator.num_processes
+    max_iters = int(len(train_dataloader) / accelerator.num_processes)
 
     lr_scheduler = get_scheduler(
         args.lr_scheduler,
