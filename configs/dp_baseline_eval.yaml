@@ -1,10 +1,17 @@
-head_camera_type: null
-image_shape: &image_shape [3, -1, -1]
-shape_meta: &shape_meta
+
+task_name: dual_bottles_pick_easy
+head_camera_type: D435
+expert_data_num: 50
+seed: 0
+
+checkpoint_dir: /root/data/projects/embodiedai/RoboticsManipulation/RoboticsManipulation/checkpoints/dp_baseline/checkpoint-20000
+
+image_shape: [3, 240, 320]
+shape_meta:
   # acceptable types: rgb, low_dim
   obs:
     head_cam:
-      shape: *image_shape
+      shape: ${image_shape}
       type: rgb
     # front_cam:
     #   shape: *image_shape
@@ -25,9 +32,7 @@ n_obs_steps: 3
 n_action_steps: 8
 n_latency_steps: 0
 obs_as_global_cond: True
-
-
-policy:
+model:
   _target_: drrm.models.policy.diffusion_policy.diffusion_unet_image_policy.DiffusionUnetImagePolicy
 
   shape_meta: ${shape_meta}
@@ -69,3 +74,9 @@ policy:
   kernel_size: 5
   n_groups: 8
   cond_predict_scale: True
+ema:
+  update_after_step: 0
+  inv_gamma: 1.0
+  power: 0.75
+  min_value: 0.0
+  max_value: 0.9999

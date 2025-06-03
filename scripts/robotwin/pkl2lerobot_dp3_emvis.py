@@ -121,11 +121,9 @@ def create_frame_dict(data: Dict[str, Any], vggt_features: Dict[str, torch.Tenso
 
 def update_feature_buffer(buffer: Dict[str, List], features: Dict[str, torch.Tensor]) -> None:
     """Update VGGT feature buffer with new features."""
+    spatial_tokens = features['spatial_tokens_list'][4] + features['spatial_tokens_list'][11] + features['spatial_tokens_list'][17] + features['spatial_tokens_list'][23]
     feature_mappings = [
-        ('spatial_tokens_4', features['spatial_tokens_list'][4]),
-        ('spatial_tokens_11', features['spatial_tokens_list'][11]),
-        ('spatial_tokens_17', features['spatial_tokens_list'][17]),
-        ('spatial_tokens_23', features['spatial_tokens_list'][23]),
+
         ('camera_tokens_4', features['camera_tokens_list'][4]),
         ('camera_tokens_11', features['camera_tokens_list'][11]),
         ('camera_tokens_17', features['camera_tokens_list'][17]),
