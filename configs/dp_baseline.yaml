@@ -27,16 +27,16 @@ allow_tf32: False
 # Initial learning rate (after the potential warmup period) to use.
 learning_rate: 1e-4
 # The beta1 parameter for the Adam optimizer.
-adam_beta1: 0.9
+adam_beta1: 0.95
 # The beta2 parameter for the Adam optimizer.
 adam_beta2: 0.999
 # The weight decay to use.
-adam_weight_decay: 1e-2
+adam_weight_decay: 1e-6
 # The epsilon value to use.
 adam_epsilon: 1e-8
 # Number of training epochs.
 num_train_epochs: 300
-# Batch size (per device) for the training dataloader.
+# Batch size (all devices) for the training dataloader.
 train_batch_size: 128
 # Batch size (per device) for the validation dataloader.
 val_batch_size: 64
@@ -47,7 +47,7 @@ dataloader_num_workers: 16
 # The scheduler type to use. Choose between ["linear", "cosine", "cosine_with_restarts", "polynomial", "constant", "constant_with_warmup"]
 lr_scheduler: cosine
 # Number of steps for the warmup in the lr scheduler.
-lr_warmup_steps: 0.05
+lr_warmup_ratio: 0.05
 # Number of hard resets of the lr in cosine_with_restarts scheduler.
 lr_num_cycles: 1
 # Power factor of the polynomial scheduler.
