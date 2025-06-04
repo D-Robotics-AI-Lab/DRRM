@@ -6,7 +6,8 @@ import hydra
 from pathlib import Path
 from collections import deque
 import traceback
-
+from copy import deepcopy
+import multiprocessing as mp
 import yaml
 from datetime import datetime
 import importlib
@@ -135,9 +136,68 @@ class DP:
     def get_last_obs(self):
         return self.runner.obs[-1]
 
-def test_policy(task_name, Demo_class, args, dp: DP, st_seed, test_num=20):
+
+def test_policy_worker(Demo_class_copy, args_copy, dp_copy, st_seed_list_sub, test_num_list_sub):
+    expert_check = True
+    Demo_class_copy.suc = 0
+    Demo_class_copy.test_num = test_num_list_sub[0]
+    
+    for now_seed, test_num in zip(st_seed_list_sub, test_num_list_sub):
+        render_freq = args_copy['render_freq']
+        args_copy['render_freq'] = 0
+        if expert_check:
+            Demo_class_copy.setup_demo(now_ep_num=test_num, seed = now_seed, is_test = True, ** args_copy)
+            Demo_class_copy.play_once()
+            Demo_class_copy.close()
+
+        args_copy['render_freq'] = render_freq
+
+        Demo_class_copy.setup_demo(now_ep_num=test_num, seed = now_seed, is_test = True, ** args_copy)
+        Demo_class_copy.apply_dp(dp_copy, args_copy)
+        Demo_class_copy.close()
+        if Demo_class_copy.render_freq:
+            Demo_class_copy.viewer.close()
+        dp_copy.runner.reset_obs()
+    
+    return Demo_class_copy.suc
+def test_policy(task_name, Demo_class, args, dp: DP, st_seed, test_num=20, num_process=1):
     expert_check = True
     print("Task name: ", args["task_name"])
+
+    if num_process > 1:
+        # 把test_num平均分配给num_process个进程
+        test_num_list = range(test_num)
+        test_num_list = np.array_split(test_num_list, num_process)
+
+        # 拷贝Demo_class
+        Demo_class_list = [deepcopy(Demo_class) for _ in range(num_process)]
+
+        # 拷贝args
+        args_list = [deepcopy(args) for _ in range(num_process)]
+
+        # 拷贝dp
+        dp_list = [deepcopy(dp) for _ in range(num_process)]
+        # for ii, in enumerate(dp_list):
+        #     ii.policy.to(f'cuda:{num_process % torch.cuda.device_count()}')
+        
+        # 设置每个进程的st_seed
+        st_seed_list = np.array_split(range(st_seed, st_seed + test_num), num_process)
+
+
+        # 进程池
+        args_list_zip = list(zip(Demo_class_list, args_list, dp_list, st_seed_list, test_num_list))
+        # To use CUDA with multiprocessing, you must use the 'spawn' start method
+        mp.set_start_method('spawn', force=True)
+        processes = []
+        for i in range(num_process):
+            p = mp.Process(target=test_policy_worker, args=(Demo_class_list[i], args_list[i], dp_list[i], st_seed_list[i], test_num_list[i]))
+            processes.append(p)
+            p.start()
+        for p in processes:
+            p.join()
+
+        # 合并结果
+        return 0, len([f for f in os.listdir(args.save_dir) if f.endswith("fail.mp4")])
 
 
     Demo_class.suc = 0
@@ -252,6 +312,7 @@ def main(args):
     cfg['task_name'] = args.task_name
     cfg['config_name'] = args.config_name
     cfg['save_dir'] = args.save_dir
+    cfg['num_process'] = args.num_process
     cfg = OmegaConf.create(cfg)
 
     task = class_decorator(cfg['task_name'])
@@ -263,28 +324,12 @@ def main(args):
 
     dp = DP(cfg)
 
-    st_seed, suc_num = test_policy(cfg.task_name, task, cfg, dp, st_seed, test_num=test_num)
+    st_seed, suc_num = test_policy(cfg.task_name, task, cfg, dp, st_seed, test_num=test_num, num_process=cfg.num_process)
     suc_nums.append(suc_num)
 
-    topk_success_rate = sorted(suc_nums, reverse=True)[:topk]
-    file_path = Path(cfg['save_dir']) / f'ckpt_{os.path.basename(cfg.checkpoint_dir)}_seed_{cfg.seed}.txt'
-    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
+    file_path = Path(cfg['save_dir']) / f'result.txt'
     with open(file_path, 'w') as file:
-        file.write(f'Timestamp: {current_time}\n\n')
-
-        file.write(f'Checkpoint Num: {checkpoint_num}\n')
-        
-        file.write('Successful Rate of Diffenent checkpoints:\n')
-        file.write('\n'.join(map(str, np.array(suc_nums) / test_num)))
-        file.write('\n\n')
-        file.write(f'TopK {topk} Success Rate (every):\n')
-        file.write('\n'.join(map(str, np.array(topk_success_rate) / test_num)))
-        file.write('\n\n')
-        file.write(f'TopK {topk} Success Rate:\n')
-        file.write(f'\n'.join(map(str, np.array(topk_success_rate) / (topk * test_num))))
-        file.write('\n\n')
-
+        file.write(f'Success Rate: {np.sum(suc_nums) / test_num}\n')
     print(f'Data has been saved to {file_path}')
 
 
@@ -302,6 +347,7 @@ if __name__ == "__main__":
     parser.add_argument('--wrist-camera-type', type=str, default='D435', help='wrist camera type')
     parser.add_argument('--front-camera-type', type=str, default='D435', help='front camera type')
     parser.add_argument('--seed', type=int, default=0, help='seed')
+    parser.add_argument('--num-process', type=int, default=1, help='number of process')
     args = parser.parse_args()
 
     main(args)
