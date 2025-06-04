@@ -135,7 +135,7 @@ class DP:
     def get_last_obs(self):
         return self.runner.obs[-1]
 
-def test_policy(task_name, Demo_class, args, dp: DP, st_seed, test_num=20):
+def test_policy(task_name, Demo_class, args, dp: DP, st_seed, test_num=20, num_process=1):
     expert_check = True
     print("Task name: ", args["task_name"])
 
@@ -252,6 +252,7 @@ def main(args):
     cfg['task_name'] = args.task_name
     cfg['config_name'] = args.config_name
     cfg['save_dir'] = args.save_dir
+    cfg['num_process'] = args.num_process
     cfg = OmegaConf.create(cfg)
 
     task = class_decorator(cfg['task_name'])
@@ -263,7 +264,7 @@ def main(args):
 
     dp = DP(cfg)
 
-    st_seed, suc_num = test_policy(cfg.task_name, task, cfg, dp, st_seed, test_num=test_num)
+    st_seed, suc_num = test_policy(cfg.task_name, task, cfg, dp, st_seed, test_num=test_num, num_process=cfg.num_process)
     suc_nums.append(suc_num)
 
     topk_success_rate = sorted(suc_nums, reverse=True)[:topk]
@@ -302,6 +303,7 @@ if __name__ == "__main__":
     parser.add_argument('--wrist-camera-type', type=str, default='D435', help='wrist camera type')
     parser.add_argument('--front-camera-type', type=str, default='D435', help='front camera type')
     parser.add_argument('--seed', type=int, default=0, help='seed')
+    parser.add_argument('--num-process', type=int, default=1, help='number of process')
     args = parser.parse_args()
 
     main(args)
