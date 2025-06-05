@@ -11,8 +11,8 @@ import shutil
 
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 
-from emvis.vggt_encoder import VGGTEncoder
-from emvis.utils import preprocess_images
+from drrm.emvis.vggt_encoder import VGGTEncoder
+from drrm.emvis.utils import preprocess_images
 
 
 # Constants

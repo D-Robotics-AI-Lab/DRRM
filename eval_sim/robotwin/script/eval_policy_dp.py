@@ -14,6 +14,7 @@ import importlib
 import argparse
 from omegaconf import OmegaConf
 from safetensors.torch import load_model
+import time
 
 from drrm.common.pytorch_util import dict_apply
 
@@ -329,6 +330,8 @@ def main(args):
 
     file_path = Path(cfg['save_dir']) / f'result.txt'
     with open(file_path, 'w') as file:
+        file.write(f'Task Name: {cfg.task_name}\n')
+        file.write(f"current time: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}\n")
         file.write(f'Success Rate: {np.sum(suc_nums) / test_num}\n')
     print(f'Data has been saved to {file_path}')
 
