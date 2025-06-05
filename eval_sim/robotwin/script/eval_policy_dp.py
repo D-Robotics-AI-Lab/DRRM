@@ -120,6 +120,16 @@ class DPRunner:
 class DP:
     def __init__(self, cfg: OmegaConf):
         model_cfg = OmegaConf.load(cfg.config_name)
+        
+        # 如果配置文件中有defaults字段，需要手动处理继承
+        if 'defaults' in model_cfg:
+            base_config_path = os.path.join(os.path.dirname(cfg.config_name), model_cfg.defaults[0])
+            if not os.path.exists(base_config_path):
+                base_config_path = base_config_path + '.yaml'
+            base_cfg = OmegaConf.load(base_config_path)
+            # 合并配置，model_cfg会覆盖base_cfg中的同名配置
+            model_cfg = OmegaConf.merge(base_cfg, model_cfg)
+        
         self.policy = hydra.utils.instantiate(model_cfg.model)
         load_model(self.policy, os.path.join(cfg.checkpoint_dir, "model.safetensors"), strict=False)    # TODO: strict=False
         self.policy.eval()
