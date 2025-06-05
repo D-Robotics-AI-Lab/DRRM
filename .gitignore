@@ -3,7 +3,6 @@ outputs/
 weights/
 wandb/
 checkpoints/
-datasets/
 third_party/
 .vscode/
 eval_sim/robotwin/aloha_maniskill_sim/
