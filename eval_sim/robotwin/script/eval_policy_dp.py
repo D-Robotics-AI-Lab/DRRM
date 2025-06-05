@@ -208,7 +208,7 @@ def test_policy(task_name, Demo_class, args, dp: DP, st_seed, test_num=20, num_p
             p.join()
 
         # 合并结果
-        return 0, len([f for f in os.listdir(args.save_dir) if f.endswith("fail.mp4")])
+        return 0, len([f for f in os.listdir(args.save_dir) if f.endswith("success.mp4")])
 
 
     Demo_class.suc = 0
