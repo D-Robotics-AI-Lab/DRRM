@@ -14,6 +14,7 @@ import importlib
 import argparse
 from omegaconf import OmegaConf
 from safetensors.torch import load_model
+import time
 
 from drrm.common.pytorch_util import dict_apply
 
@@ -119,6 +120,16 @@ class DPRunner:
 class DP:
     def __init__(self, cfg: OmegaConf):
         model_cfg = OmegaConf.load(cfg.config_name)
+        
+        # 如果配置文件中有defaults字段，需要手动处理继承
+        if 'defaults' in model_cfg:
+            base_config_path = os.path.join(os.path.dirname(cfg.config_name), model_cfg.defaults[0])
+            if not os.path.exists(base_config_path):
+                base_config_path = base_config_path + '.yaml'
+            base_cfg = OmegaConf.load(base_config_path)
+            # 合并配置，model_cfg会覆盖base_cfg中的同名配置
+            model_cfg = OmegaConf.merge(base_cfg, model_cfg)
+        
         self.policy = hydra.utils.instantiate(model_cfg.model)
         load_model(self.policy, os.path.join(cfg.checkpoint_dir, "model.safetensors"), strict=False)    # TODO: strict=False
         self.policy.eval()
@@ -197,7 +208,7 @@ def test_policy(task_name, Demo_class, args, dp: DP, st_seed, test_num=20, num_p
             p.join()
 
         # 合并结果
-        return 0, len([f for f in os.listdir(args.save_dir) if f.endswith("fail.mp4")])
+        return 0, len([f for f in os.listdir(args.save_dir) if f.endswith("success.mp4")])
 
 
     Demo_class.suc = 0
@@ -329,6 +340,8 @@ def main(args):
 
     file_path = Path(cfg['save_dir']) / f'result.txt'
     with open(file_path, 'w') as file:
+        file.write(f'Task Name: {cfg.task_name}\n')
+        file.write(f"current time: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}\n")
         file.write(f'Success Rate: {np.sum(suc_nums) / test_num}\n')
     print(f'Data has been saved to {file_path}')
 

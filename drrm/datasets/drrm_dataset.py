@@ -227,6 +227,8 @@ class DRRMDataset(LeRobotDataset):
         
         for key in self.npy_feature_keys:
             file_path = lerobot_root / f"npy/{key}/{ep_idx}.npy"
+            if not file_path.exists():
+                file_path = lerobot_root / f"npy/{key}/episode_{ep_idx:06d}.npy"
             arr = np.load(file_path, mmap_mode='r')
             result[key] = arr[indices].copy()
             
