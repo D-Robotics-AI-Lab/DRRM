@@ -147,8 +147,11 @@ class DP:
     def get_last_obs(self):
         return self.runner.obs[-1]
 
+def test_policy_worker(task_name, args_copy, st_seed_list_sub, test_num_list_sub, gpu_id = None):
+    if gpu_id != None: os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
+    Demo_class_copy = class_decorator(task_name)
+    dp_copy = DP(args_copy)
 
-def test_policy_worker(Demo_class_copy, args_copy, dp_copy, st_seed_list_sub, test_num_list_sub):
     expert_check = True
     Demo_class_copy.suc = 0
     Demo_class_copy.test_num = test_num_list_sub[0]
@@ -171,7 +174,7 @@ def test_policy_worker(Demo_class_copy, args_copy, dp_copy, st_seed_list_sub, te
         dp_copy.runner.reset_obs()
     
     return Demo_class_copy.suc
-def test_policy(task_name, Demo_class, args, dp: DP, st_seed, test_num=20, num_process=1):
+def test_policy(task_name, args, st_seed, test_num=20, num_process=1):
     expert_check = True
     print("Task name: ", args["task_name"])
 
@@ -181,13 +184,13 @@ def test_policy(task_name, Demo_class, args, dp: DP, st_seed, test_num=20, num_p
         test_num_list = np.array_split(test_num_list, num_process)
 
         # 拷贝Demo_class
-        Demo_class_list = [deepcopy(Demo_class) for _ in range(num_process)]
+        # Demo_class_list = [deepcopy(Demo_class) for _ in range(num_process)]
 
         # 拷贝args
         args_list = [deepcopy(args) for _ in range(num_process)]
 
         # 拷贝dp
-        dp_list = [deepcopy(dp) for _ in range(num_process)]
+        # dp_list = [deepcopy(dp) for _ in range(num_process)]
         # for ii, in enumerate(dp_list):
         #     ii.policy.to(f'cuda:{num_process % torch.cuda.device_count()}')
         
@@ -196,12 +199,14 @@ def test_policy(task_name, Demo_class, args, dp: DP, st_seed, test_num=20, num_p
 
 
         # 进程池
-        args_list_zip = list(zip(Demo_class_list, args_list, dp_list, st_seed_list, test_num_list))
+        # args_list_zip = list(zip(Demo_class_list, args_list, dp_list, st_seed_list, test_num_list))
         # To use CUDA with multiprocessing, you must use the 'spawn' start method
         mp.set_start_method('spawn', force=True)
         processes = []
+        gpu_num = torch.cuda.device_count()
         for i in range(num_process):
-            p = mp.Process(target=test_policy_worker, args=(Demo_class_list[i], args_list[i], dp_list[i], st_seed_list[i], test_num_list[i]))
+            p = mp.Process(target=test_policy_worker, args=(task_name, args_list[i], st_seed_list[i], test_num_list[i], i%gpu_num))
+            # p = mp.Process(target=test_policy_worker, args=(Demo_class_list[i], args_list[i], dp_list[i], st_seed_list[i], test_num_list[i]))
             processes.append(p)
             p.start()
         for p in processes:
@@ -210,6 +215,8 @@ def test_policy(task_name, Demo_class, args, dp: DP, st_seed, test_num=20, num_p
         # 合并结果
         return 0, len([f for f in os.listdir(args.save_dir) if f.endswith("success.mp4")])
 
+    dp = DP(args)
+    Demo_class = class_decorator(args['task_name'])
 
     Demo_class.suc = 0
     Demo_class.test_num =0
@@ -326,16 +333,17 @@ def main(args):
     cfg['num_process'] = args.num_process
     cfg = OmegaConf.create(cfg)
 
-    task = class_decorator(cfg['task_name'])
+    # task = class_decorator(cfg['task_name'])
 
     st_seed = 100000 * (1+cfg['expert_seed'])
     suc_nums = []
     test_num = 100 
     topk = 1
 
-    dp = DP(cfg)
+    # dp = DP(cfg)
 
-    st_seed, suc_num = test_policy(cfg.task_name, task, cfg, dp, st_seed, test_num=test_num, num_process=cfg.num_process)
+    # st_seed, suc_num = test_policy(cfg.task_name, task, cfg, dp, st_seed, test_num=test_num, num_process=cfg.num_process)
+    st_seed, suc_num = test_policy(cfg.task_name, cfg, st_seed, test_num=test_num, num_process=cfg.num_process)
     suc_nums.append(suc_num)
 
     file_path = Path(cfg['save_dir']) / f'result.txt'
