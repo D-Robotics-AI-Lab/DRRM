@@ -22,10 +22,11 @@ from diffusion_policy_3d.model.diffusion.conditional_unet1d import ConditionalUn
 from diffusion_policy_3d.model.diffusion.mask_generator import LowdimMaskGenerator
 from diffusion_policy_3d.common.pytorch_util import dict_apply
 from diffusion_policy_3d.common.model_util import print_params
+from diffusion_policy_3d.model.common.module_attr_mixin import ModuleAttrMixin
 from diffusion_policy_3d.model.vision.pointnet_extractor import DP3Encoder
 from drrm.models.base_policy import BasePolicy
 from drrm.common.normalizer import LinearNormalizer
-class DP3(BasePolicy):
+class DP3(BasePolicy, ModuleAttrMixin):
     def __init__(self, 
             shape_meta: dict,
             noise_scheduler: DDPMScheduler,
@@ -186,7 +187,9 @@ class DP3(BasePolicy):
         result: must include "action" key
         """
         # normalize input
-        nobs = self.normalizer.normalize(obs_dict)
+        filtered_obs_dict = {key: value for key, value in obs_dict.items() 
+                if key in self.normalizer.params_dict}
+        nobs = self.normalizer.normalize(filtered_obs_dict)
         # this_n_point_cloud = nobs['imagin_robot'][..., :3] # only use coordinate
         if not self.use_pc_color:
             nobs['point_cloud'] = nobs['point_cloud'][..., :3]

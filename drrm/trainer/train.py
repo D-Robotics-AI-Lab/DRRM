@@ -262,7 +262,6 @@ def train(args, logger):
         # Checks if the accelerator has performed an optimization step behind the scenes
         if accelerator.sync_gradients:
             progress_bar.update(1)
-            global_step += 1
 
             if global_step % args.checkpointing_period == 0:
                 save_path = os.path.join(args.output_dir, f"checkpoint-{global_step}")
@@ -281,6 +280,7 @@ def train(args, logger):
                 )
                 logger.info(sample_loss_for_log)
                 accelerator.log(sample_loss_for_log, step=global_step)
+            global_step += 1
         
         logs = {"loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
         progress_bar.set_postfix(**logs)
