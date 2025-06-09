@@ -1,0 +1,30 @@
+defaults:
+  - dp_baseline
+  - _self_
+
+
+
+model:
+  obs_encoder:
+    _target_: drrm.models.policy.diffusion_policy.multi_image_obs_encoder_emvis_exp1.MultiImageObsEncoderEmvisExp1
+    out_channels: 526
+    emvis_config:
+      load_vggt_pretrain: true
+      vggt_model_path: /root/data/projects/embodiedai/RoboticsManipulation/RoboticsManipulation/checkpoints/VGGT-1B/model.pt
+      mlp_ratio: 4.0
+      intermediate_layer_idx: [4, 11, 17, 23]
+      injector_config:
+        fuse_2d: False
+        fusion_method: "gate" # weight, gate, dim, mlp
+        boardcast_block_num: 1
+      model_adapter_config:
+        shape_out: [1, 1]
+        dim_out: 512
+
+train_dataset:
+  root: /root/data/projects/embodiedai/RoboticsManipulation/RoboticsManipulation/data/lerobot/dual_bottles_pick_hard_D435_drrm
+  repo_id: D-robotics/dual_bottles_pick_hard_D435_drrm
+  npy_feature_keys: ['spatial_tokens_4', 'spatial_tokens_11', 'spatial_tokens_17', 'spatial_tokens_23', 'image_tokens_pos']
+  dataset_metadata:
+    root: /root/data/projects/embodiedai/RoboticsManipulation/RoboticsManipulation/data/lerobot/dual_bottles_pick_hard_D435_drrm
+    repo_id: D-robotics/dual_bottles_pick_hard_D435_drrm
