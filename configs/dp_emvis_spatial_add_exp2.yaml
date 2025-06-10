@@ -22,5 +22,5 @@ train_dataset:
   repo_id: D-robotics/dual_bottles_pick_hard_D435_drrm
   npy_feature_keys: ['spatial_tokens_23', 'image_tokens_pos']
   dataset_metadata:
-    root: /root/data/projects/embodiedai/RoboticsManipulation/RoboticsManipulation/data/lerobot/dual_bottles_pick_hard_D435_drrm
-    repo_id: D-robotics/dual_bottles_pick_hard_D435_drrm
+    root: ${train_dataset.root}
+    repo_id: ${train_dataset.repo_id}
