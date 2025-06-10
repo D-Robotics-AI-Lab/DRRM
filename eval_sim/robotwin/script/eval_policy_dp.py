@@ -15,7 +15,7 @@ import argparse
 from omegaconf import OmegaConf
 from safetensors.torch import load_model
 import time
-
+from multiprocessing import Manager
 from drrm.common.pytorch_util import dict_apply
 
 # allows arbitrary python code execution in configs using the ${eval:''} resolver
@@ -147,26 +147,39 @@ class DP:
     def get_last_obs(self):
         return self.runner.obs[-1]
 
-def test_policy_worker(task_name, args_copy, st_seed_list_sub, test_num_list_sub, gpu_id = None):
+def test_policy_worker(task_name, args_copy, seed, need, lock, test_num, gpu_id = None):
     if gpu_id != None: os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
     Demo_class_copy = class_decorator(task_name)
     dp_copy = DP(args_copy)
 
     expert_check = True
     Demo_class_copy.suc = 0
-    Demo_class_copy.test_num = test_num_list_sub[0]
+    # Demo_class_copy.test_num = test_num_list_sub[0]
     
-    for now_seed, test_num in zip(st_seed_list_sub, test_num_list_sub):
-        render_freq = args_copy['render_freq']
-        args_copy['render_freq'] = 0
-        if expert_check:
-            Demo_class_copy.setup_demo(now_ep_num=test_num, seed = now_seed, is_test = True, ** args_copy)
-            Demo_class_copy.play_once()
-            Demo_class_copy.close()
+    render_freq = args_copy['render_freq']
+    while need.value > 0:
+        with lock:  # 加锁保证原子操作
+            now_seed = seed.value
+            seed.value += 1
+            args_copy['render_freq'] = 0
+            if expert_check:
+                Demo_class_copy.setup_demo(now_ep_num = test_num-need.value, seed = now_seed, is_test = True, ** args_copy)
+                Demo_class_copy.play_once()
+                Demo_class_copy.close()
+            if (not expert_check) or (Demo_class_copy.plan_success and Demo_class_copy.check_success()):
+                # with lock:  # 再次加锁更新共享状态
+                if need.value > 0:
+                    now_id = test_num-need.value
+                    Demo_class_copy.test_num = now_id
+                    need.value -= 1
+            else: continue
 
         args_copy['render_freq'] = render_freq
-
-        Demo_class_copy.setup_demo(now_ep_num=test_num, seed = now_seed, is_test = True, ** args_copy)
+        dst_dir = os.path.join(args_copy['save_dir'], "vis", f"{now_id}_{now_seed}")
+        os.makedirs(dst_dir, exist_ok=True)
+        os.environ["DEBUG_DIR"] = dst_dir
+        
+        Demo_class_copy.setup_demo(now_ep_num = now_id, seed = now_seed, is_test = True, ** args_copy)
         Demo_class_copy.apply_dp(dp_copy, args_copy)
         Demo_class_copy.close()
         if Demo_class_copy.render_freq:
@@ -174,43 +187,30 @@ def test_policy_worker(task_name, args_copy, st_seed_list_sub, test_num_list_sub
         dp_copy.runner.reset_obs()
     
     return Demo_class_copy.suc
+
 def test_policy(task_name, args, st_seed, test_num=20, num_process=1):
     expert_check = True
     print("Task name: ", args["task_name"])
 
     if num_process > 1:
-        # 把test_num平均分配给num_process个进程
-        test_num_list = range(test_num)
-        test_num_list = np.array_split(test_num_list, num_process)
+        with Manager() as manager:
+            seed = manager.Value('i', st_seed)  # 代理Value
+            need = manager.Value('i', test_num)
+            lock = manager.Lock() 
+            args_list = [deepcopy(args) for _ in range(num_process)]
 
-        # 拷贝Demo_class
-        # Demo_class_list = [deepcopy(Demo_class) for _ in range(num_process)]
-
-        # 拷贝args
-        args_list = [deepcopy(args) for _ in range(num_process)]
-
-        # 拷贝dp
-        # dp_list = [deepcopy(dp) for _ in range(num_process)]
-        # for ii, in enumerate(dp_list):
-        #     ii.policy.to(f'cuda:{num_process % torch.cuda.device_count()}')
-        
-        # 设置每个进程的st_seed
-        st_seed_list = np.array_split(range(st_seed, st_seed + test_num), num_process)
-
-
-        # 进程池
-        # args_list_zip = list(zip(Demo_class_list, args_list, dp_list, st_seed_list, test_num_list))
-        # To use CUDA with multiprocessing, you must use the 'spawn' start method
-        mp.set_start_method('spawn', force=True)
-        processes = []
-        gpu_num = torch.cuda.device_count()
-        for i in range(num_process):
-            p = mp.Process(target=test_policy_worker, args=(task_name, args_list[i], st_seed_list[i], test_num_list[i], i%gpu_num))
-            # p = mp.Process(target=test_policy_worker, args=(Demo_class_list[i], args_list[i], dp_list[i], st_seed_list[i], test_num_list[i]))
-            processes.append(p)
-            p.start()
-        for p in processes:
-            p.join()
+            # 进程池
+            # To use CUDA with multiprocessing, you must use the 'spawn' start method
+            mp.set_start_method('spawn', force=True)
+            processes = []
+            gpu_num = torch.cuda.device_count()
+            for i in range(num_process):
+                p = mp.Process(target=test_policy_worker, args=(task_name, args_list[i], seed, need, lock, test_num, i%gpu_num))
+                # p = mp.Process(target=test_policy_worker, args=(Demo_class_list[i], args_list[i], dp_list[i], st_seed_list[i], test_num_list[i]))
+                processes.append(p)
+                p.start()
+            for p in processes:
+                p.join()
 
         # 合并结果
         return 0, len([f for f in os.listdir(args.save_dir) if f.endswith("success.mp4")])
@@ -257,6 +257,10 @@ def test_policy(task_name, args, st_seed, test_num=20, num_process=1):
 
 
         args['render_freq'] = render_freq
+
+        dst_dir = os.path.join(args['save_dir'], "vis", f"{now_id}_{now_seed}")
+        os.makedirs(dst_dir, exist_ok=True)
+        os.environ["DEBUG_DIR"] = dst_dir
 
         Demo_class.setup_demo(now_ep_num=now_id, seed = now_seed, is_test = True, ** args)
         Demo_class.apply_dp(dp, args)
