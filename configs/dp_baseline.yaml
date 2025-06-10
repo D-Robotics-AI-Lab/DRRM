@@ -43,7 +43,7 @@ val_batch_size: 64
 # Number of batches to sample from the validation dataset.
 num_val_batches: 2
 # Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
-dataloader_num_workers: 8
+dataloader_num_workers: 4
 # The scheduler type to use. Choose between ["linear", "cosine", "cosine_with_restarts", "polynomial", "constant", "constant_with_warmup"]
 lr_scheduler: cosine
 # Number of steps for the warmup in the lr scheduler.
