@@ -9,6 +9,7 @@ model:
     _target_: drrm.models.policy.diffusion_policy.multi_image_obs_encoder_emvis_exp1.MultiImageObsEncoderEmvisExp1
     out_channels: 526
     emvis_config:
+      load_vggt_heads: true
       load_vggt_pretrain: true
       vggt_model_path: /root/data/projects/embodiedai/RoboticsManipulation/RoboticsManipulation/checkpoints/VGGT-1B/model.pt
       mlp_ratio: 4.0
