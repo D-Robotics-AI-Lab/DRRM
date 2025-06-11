@@ -409,7 +409,7 @@ def main(args):
 
     st_seed = 100000 * (1+cfg['expert_seed'])
     suc_nums = []
-    test_num = 10
+    test_num = 100
     topk = 1
 
     # dp = DP(cfg)
