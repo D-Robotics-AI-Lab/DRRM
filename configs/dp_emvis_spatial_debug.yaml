@@ -11,10 +11,10 @@ model:
     emvis_config:
       dim_2d: None
       load_vggt_pretrain: true
-      load_vggt_heads: true
+      # load_vggt_heads: true
       # visualize: true
       vggt_model_path: checkpoints/VGGT-1B/model.pt
-      mlp_ratio: 4.0
+      mlp_ratio: 2.0
       intermediate_layer_idx: [4, 11, 17, 23]
       injector_config:
         fuse_2d: False

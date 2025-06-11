@@ -1287,6 +1287,7 @@ class Base_task(gym.Env):
         observation = self.get_obs()
         if eval_video_log:
             ffmpeg.stdin.write(observation['observation']['head_camera']['rgb'].tobytes())
+            frames += 1
 
         while cnt < self.step_lim:
             observation = self.get_obs()

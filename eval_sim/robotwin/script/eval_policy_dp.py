@@ -26,7 +26,7 @@ parent_directory = os.path.dirname(current_file_path)
 
 def format_result(key: int, res: dict):
     s = f"【{key:03d}】"
-    for k in  ['seed', 'success', 'frame', 'time', 'fps', 'start', 'end', 'limit']:
+    for k in  ['seed', 'success', 'frames', 'time', 'fps', 'start', 'end', 'cnt', 'limit']:
         if not k in res: continue
         elif k == 'time': 
             s += f"{k}: {int(res[k]):03d} s, "
