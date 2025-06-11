@@ -65,7 +65,7 @@ class Base_task(gym.Env):
         super().__init__()
         ta.setup_logging("CRITICAL") # hide logging
         np.random.seed(kwags.get('seed', 0))
-
+        self.seed = kwags.get('seed', 0)
         global left_pub_data
         global right_pub_data
 
@@ -1251,6 +1251,8 @@ class Base_task(gym.Env):
     def apply_dp(self, model, args):
         cnt = 0
         self.test_num += 1
+        self.test_num = f"{self.test_num}_{self.seed}"
+        frames = 0
 
         eval_video_log = args['eval_video_log']
         video_size = str(args['head_camera_w']) + 'x' + str(args['head_camera_h'])
@@ -1260,7 +1262,7 @@ class Base_task(gym.Env):
         if eval_video_log:
             import subprocess
             from pathlib import Path
-            save_dir = Path('eval_video') / save_dir
+            save_dir = save_dir / Path('eval_video')
             save_dir.mkdir(parents=True, exist_ok=True)
             ffmpeg = subprocess.Popen([
                 'ffmpeg', '-y',
@@ -1410,12 +1412,13 @@ class Base_task(gym.Env):
             self. _update_render()
             if eval_video_log:
                 ffmpeg.stdin.write(observation['observation']['head_camera']['rgb'].tobytes())
+                frames += 1
             if self.render_freq:
                 self.viewer.render()
             
             self._take_picture()
 
-            print(f'step: {cnt} / {self.step_lim}', end='\r')
+            # print(f'step: {cnt} / {self.step_lim}', end='\r')
 
             if success_flag:
                 print("\nsuccess!")
@@ -1426,8 +1429,7 @@ class Base_task(gym.Env):
                     ffmpeg.wait()
                     del ffmpeg
                     shutil.move(f'{save_dir}/{self.test_num}.mp4', f'{save_dir}/{self.test_num}_success.mp4')
-
-                return
+                return True, frames, cnt, self.step_lim
             
             if self.actor_pose == False:
                 break
@@ -1440,11 +1442,13 @@ class Base_task(gym.Env):
             ffmpeg.wait()
             del ffmpeg
             shutil.move(f'{save_dir}/{self.test_num}.mp4', f'{save_dir}/{self.test_num}_fail.mp4')
+        return False, frames, cnt, self.step_lim
 
 
     def apply_dp3(self, model, args):
         cnt = 0
         self.test_num += 1
+        self.test_num = f"{self.test_num}_{self.seed}"
 
         eval_video_log = args['eval_video_log']
         video_size = str(args['head_camera_w']) + 'x' + str(args['head_camera_h'])
@@ -1454,7 +1458,7 @@ class Base_task(gym.Env):
         if eval_video_log:
             import subprocess
             from pathlib import Path
-            save_dir = Path('eval_video') / save_dir
+            save_dir = save_dir / Path('eval_video')
             save_dir.mkdir(parents=True, exist_ok=True)
             ffmpeg = subprocess.Popen([
                 'ffmpeg', '-y',
@@ -1626,8 +1630,7 @@ class Base_task(gym.Env):
                     ffmpeg.wait()
                     del ffmpeg
                     shutil.move(f'{save_dir}/{self.test_num}.mp4', f'{save_dir}/{self.test_num}_success.mp4')
-
-                return
+                return True
             
             if self.actor_pose == False:
                 break
@@ -1639,6 +1642,7 @@ class Base_task(gym.Env):
             ffmpeg.wait()
             del ffmpeg
             shutil.move(f'{save_dir}/{self.test_num}.mp4', f'{save_dir}/{self.test_num}_fail.mp4')
+        return False
     
     def get_grasp_pose_w_labeled_direction(self, actor, actor_data = DEFAULT_ACTOR_DATA, grasp_matrix = np.eye(4), pre_dis = 0, id = 0):
         actor_matrix = actor.get_pose().to_transformation_matrix()
@@ -1694,12 +1698,13 @@ class Base_task(gym.Env):
         eval_video_log = args['eval_video_log']
         camera_config = self.get_camera_config(str(args['head_camera_type']))
         video_size = str(camera_config['w']) + 'x' + str(camera_config['h']) # TODO
-        save_dir = 'RDT/' + str(args['task_name']) + '_' + str(args['head_camera_type']) + '_' + str(args['model_name']) + '/' + str(args['checkpoint_id']) + '_seed' + str(args['expert_seed']) # TODO
+        # save_dir = 'RDT/' + str(args['task_name']) + '_' + str(args['head_camera_type']) + '_' + str(args['model_name']) + '/' + str(args['checkpoint_id']) + '_seed' + str(args['expert_seed']) # TODO
+        save_dir = args['save_dir']
 
         if eval_video_log:
             import subprocess
             from pathlib import Path
-            save_dir = Path('eval_video') / save_dir
+            save_dir = save_dir / Path('eval_video')
             save_dir.mkdir(parents=True, exist_ok=True)
             ffmpeg = subprocess.Popen([
                 'ffmpeg', '-y', '-loglevel', 'error',
@@ -1925,12 +1930,13 @@ class Base_task(gym.Env):
         eval_video_log = args['eval_video_log']
         camera_config = self.get_camera_config(str(args['head_camera_type']))
         video_size = str(camera_config['w']) + 'x' + str(camera_config['h']) # TODO
-        save_dir = 'RDT/' + str(args['task_name']) + '_' + str(args['head_camera_type']) + '_' + str(args['model_name']) + '/' + str(args['checkpoint_id']) + '_seed' + str(args['expert_seed']) # TODO
+        # save_dir = 'RDT/' + str(args['task_name']) + '_' + str(args['head_camera_type']) + '_' + str(args['model_name']) + '/' + str(args['checkpoint_id']) + '_seed' + str(args['expert_seed']) # TODO
+        save_dir = args['save_dir']
 
         if eval_video_log:
             import subprocess
             from pathlib import Path
-            save_dir = Path('eval_video') / save_dir
+            save_dir = save_dir / Path('eval_video')
             save_dir.mkdir(parents=True, exist_ok=True)
             ffmpeg = subprocess.Popen([
                 'ffmpeg', '-y', '-loglevel', 'error',
