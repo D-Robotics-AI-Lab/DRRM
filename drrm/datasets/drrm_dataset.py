@@ -229,8 +229,13 @@ class DRRMDataset(LeRobotDataset):
             file_path = lerobot_root / f"npy/{key}/{ep_idx}.npy"
             if not file_path.exists():
                 file_path = lerobot_root / f"npy/{key}/episode_{ep_idx:06d}.npy"
-            arr = np.load(file_path, mmap_mode='r')
-            result[key] = arr[indices].copy()
+            # 使用mmeap_mode + take
+            with open(file_path, 'rb') as f:
+                version = np.lib.format.read_magic(f)
+                shape, fortran, dtype = np.lib.format._read_array_header(f, version)
+                offset = f.tell()
+            arr_memmap = np.memmap(file_path, dtype=dtype, mode='r', offset=offset).reshape(shape)
+            result[key] = np.take(arr_memmap, indices, axis=0)
             
         return result
 
