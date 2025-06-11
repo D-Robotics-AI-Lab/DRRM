@@ -91,7 +91,7 @@ def train(args, logger):
 
     # Policy Model creation
     policy_model = hydra.utils.instantiate(args.model)
-    policy_model.to(accelerator.device, dtype=weight_dtype)
+    policy_model.to(accelerator.device)
 
     ema_policy_model = copy.deepcopy(policy_model)
     ema_model = EMAModel(
