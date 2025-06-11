@@ -52,7 +52,7 @@ class MultiImageObsEncoderEmvisExp1(ModuleAttrMixin):
                 elif key == 'image_tokens':
                     image_tokens = value.unsqueeze(1)
                 elif key == 'image_tokens_pos':
-                    image_tokens_pos = value.unsqueeze(1)
+                    image_tokens_pos = value.type(torch.int64).unsqueeze(1)
             vggt_tokens_dict = {
                 'spatial_tokens_list': spatial_tokens_list,
                 'camera_tokens_list': camera_tokens_list,
