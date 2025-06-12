@@ -16,6 +16,7 @@ model:
       mlp_ratio: 2.0
       intermediate_layer_idx: [4, 11, 17, 23]
       injector_config:
+        proj_type: "Linear"  # 'Linear' 'MLP' 'Nonlinear'
         fuse_2d: False
         fusion_method: "gate" # weight, gate, dim, mlp
         boardcast_block_num: 1
