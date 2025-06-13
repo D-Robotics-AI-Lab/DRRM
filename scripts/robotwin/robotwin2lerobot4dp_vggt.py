@@ -1,3 +1,13 @@
+"""
+useage:
+python scripts/robotwin/robotwin2lerobot4dp_vggt.py \
+    --src_dir /workspace/RoboticsManipulation/.data/dual_bottles_pick_hard_D435_pkl \
+    --dst_dir /workspace/.cache/huggingface/lerobot/D-robotics/dual_bottles_pick_hard_D435_vggt \
+    --repo D-robotics/dual_bottles_pick_hard_D435_vggt \
+    --fps 40 \
+    --vggt_path /workspace/RoboticsManipulation/checkpoints/VGGT-1B/model.pt
+"""
+
 import os
 import pickle
 from pathlib import Path
@@ -20,7 +30,7 @@ TASK_STR = "dual bottles pick easy"
 CAMERA_SHAPE = (240, 320, 3)
 # Feature schema definition for the LeRobot dataset
 FEATURES = {
-    "head_cam": {"dtype": "video", "shape": CAMERA_SHAPE, "names": ["h", "w", "c"]},
+    "head_cam": {"dtype": "image", "shape": CAMERA_SHAPE, "names": ["h", "w", "c"]},
     "endpose": {"dtype": "float32", "shape": (14,), "names": ["endpose"]},
     "agent_pos": {"dtype": "float32", "shape": (14,), "names": ["agent_pos"]},
     "action": {"dtype": "float32", "shape": (14,), "names": ["action"]},
@@ -38,6 +48,7 @@ def _extract_vggt_features(rgb: np.ndarray, encoder: VGGTEncoder) -> Dict[str, t
     """Extract VGGT features from RGB image."""
     # Convert to tensor and preprocess
     img_t = torch.from_numpy(rgb.transpose(2, 0, 1) / 255.0).to(dtype=torch.float32, device="cuda")
+
     img_t = preprocess_images(img_t.unsqueeze(0))  # (1, 3, H, W)
     
     # Extract features
@@ -54,7 +65,8 @@ def _extract_frame(data: Dict[str, Any]) -> Dict[str, Any]:
         "agent_pos": data["joint_action"].astype(np.float32),
         "action": data["joint_action"].astype(np.float32),
         "endpose": data["endpose"].astype(np.float32),
-        "head_cam": data["observation"]["head_camera"]["rgb"].astype(np.float32) / 255.0,
+        "head_cam": data["observation"]["head_camera"]["rgb"],
+        # "head_cam": data["observation"]["head_camera"]["rgb"].astype(np.float32) / 255.0,
     }
 
 def _update_feature_buffer(buffer: Dict[str, List], features: Dict[str, torch.Tensor]) -> None:
@@ -105,7 +117,7 @@ def _process_episode(dataset: LeRobotDataset, episode_dir: Path, encoder: VGGTEn
 
         # Process image
         rgb = raw["observation"]["head_camera"]["rgb"]  # uint8 (H, W, 3)
-
+        # breakpoint()
         # Extract VGGT features
         vggt_features = _extract_vggt_features(rgb, encoder)
 
@@ -113,6 +125,7 @@ def _process_episode(dataset: LeRobotDataset, episode_dir: Path, encoder: VGGTEn
         _update_feature_buffer(vggt_features_buffer, vggt_features)
     
     # Save episode and features
+    # breakpoint()
     dataset.save_episode()
     _save_features_to_disk(vggt_features_buffer, args.repo, int(episode_dir.stem[len("episode"):]), args.dst_dir)
     
@@ -128,7 +141,7 @@ def main(args):
         fps=args.fps,
         robot_type="AgileBot",
         features=FEATURES,
-        use_videos=True,
+        use_videos=False,
     )
     for episode_idx in range(len([d for d in os.listdir(args.src_dir) if os.path.isdir(os.path.join(args.src_dir, d))])):
         episode_dir = Path(os.path.join(args.src_dir, f"episode{episode_idx}"))
