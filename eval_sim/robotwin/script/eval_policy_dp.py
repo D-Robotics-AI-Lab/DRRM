@@ -173,7 +173,14 @@ class DP:
         self.runner.update_obs(observation)
     
     def get_action(self, observation=None):
-        action = self.runner.get_action(self.policy, observation)
+        device = str(self.policy.device)
+        # dtype = torch.bfloat16
+        dtype = torch.float32
+        if isinstance(dtype, torch.float32):
+            action = self.runner.get_action(self.policy, observation)
+        else:
+            with torch.autocast(device_type=device, dtype=dtype):
+                action = self.runner.get_action(self.policy, observation)
         return action
 
     def get_last_obs(self):
