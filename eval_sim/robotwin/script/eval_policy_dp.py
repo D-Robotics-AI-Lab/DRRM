@@ -155,12 +155,21 @@ class DP:
         
         # 如果配置文件中有defaults字段，需要手动处理继承
         if 'defaults' in model_cfg:
-            base_config_path = os.path.join(os.path.dirname(cfg.config_name), model_cfg.defaults[0])
+            base_config_path = os.path.join(os.path.dirname(cfg.config_name), 
+                                            model_cfg.defaults[0])
             if not os.path.exists(base_config_path):
                 base_config_path = base_config_path + '.yaml'
             base_cfg = OmegaConf.load(base_config_path)
             # 合并配置，model_cfg会覆盖base_cfg中的同名配置
             model_cfg = OmegaConf.merge(base_cfg, model_cfg)
+
+        dtype = model_cfg.mixed_precision if hasattr(model_cfg, 'mixed_precision') else None
+        if dtype == 'bf16':
+            self.dtype = torch.bfloat16
+        elif dtype == 'fp16':
+            self.dtype = torch.float16
+        else:
+            self.dtype = torch.float32
         
         self.policy = hydra.utils.instantiate(model_cfg.model)
         load_model(self.policy, os.path.join(cfg.checkpoint_dir, "model.safetensors"), strict=False)    # TODO: strict=False
@@ -174,12 +183,10 @@ class DP:
     
     def get_action(self, observation=None):
         device = str(self.policy.device)
-        # dtype = torch.bfloat16
-        dtype = torch.float32
-        if isinstance(dtype, torch.float32):
+        if isinstance(self.dtype, torch.float32):
             action = self.runner.get_action(self.policy, observation)
         else:
-            with torch.autocast(device_type=device, dtype=dtype):
+            with torch.autocast(device_type=device, dtype=self.dtype):
                 action = self.runner.get_action(self.policy, observation)
         return action
 
@@ -231,13 +238,8 @@ def test_policy_worker(task_name, args_copy, seed, need, lock, test_num, log_pat
             t1 = time.time()
             delta = t1 - t0
             result.update(
-                success = success,
-                end = t1,
-                time = delta,
-                frames = frames,
-                count = count,
-                limit = limit,
-                fps = frames/delta,
+                success = success, end = t1, time = delta, frames = frames,
+                count = count, limit = limit, fps = frames/delta,
             )
             log_result(log_path, ind, result, log_lock)
 
@@ -245,108 +247,47 @@ def test_policy_worker(task_name, args_copy, seed, need, lock, test_num, log_pat
     return Demo_class_copy.suc
 
 def test_policy(task_name, args, st_seed, test_num=20, num_process=1):
-    expert_check = True
     print("Task name: ", args["task_name"])
 
-    if num_process > 0:
-        log_path = Path(args['save_dir'])
-        log_path.mkdir(parents=True, exist_ok=True)
-        log_path =log_path / 'result.txt'
-        with open(log_path, 'w') as file:
-            file.write(
-                f"Start time: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}"+
-                '\n' * test_num
+    log_path = Path(args['save_dir'])
+    log_path.mkdir(parents=True, exist_ok=True)
+    log_path =log_path / 'result.txt'
+    with open(log_path, 'w') as file:
+        file.write(
+            f"Start time: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}"+
+            '\n' * test_num
+        )
+    with Manager() as manager:
+        seed = manager.Value('i', st_seed)  # 代理Value
+        need = manager.Value('i', test_num)
+        lock = manager.Lock() 
+        log_lock = manager.Lock() 
+        args_list = [deepcopy(args) for _ in range(num_process)]
+
+        # 进程池
+        # To use CUDA with multiprocessing, you must use the 'spawn' start method
+        mp.set_start_method('spawn', force=True)
+        processes = []
+        return_queue = Queue()
+        gpu_num = torch.cuda.device_count()
+        for i in range(num_process):
+            p = Process(
+                target=test_policy_worker, 
+                args=(task_name, args_list[i], seed, need, lock, test_num, 
+                      log_path, log_lock, return_queue, i%gpu_num)
             )
-        with Manager() as manager:
-            seed = manager.Value('i', st_seed)  # 代理Value
-            need = manager.Value('i', test_num)
-            lock = manager.Lock() 
-            log_lock = manager.Lock() 
-            args_list = [deepcopy(args) for _ in range(num_process)]
+            processes.append(p)
+            p.start()
+        for p in processes:
+            p.join()
 
-            # 进程池
-            # To use CUDA with multiprocessing, you must use the 'spawn' start method
-            mp.set_start_method('spawn', force=True)
-            processes = []
-            return_queue = Queue()
-            gpu_num = torch.cuda.device_count()
-            for i in range(num_process):
-                res = {}
-                p = Process(target=test_policy_worker, args=(task_name, args_list[i], seed, need, lock, test_num, log_path, log_lock, return_queue, i%gpu_num))
-                # p = mp.Process(target=test_policy_worker, args=(Demo_class_list[i], args_list[i], dp_list[i], st_seed_list[i], test_num_list[i]))
-                processes.append(p)
-                p.start()
-            for p in processes:
-                p.join()
-
-        results = []
-        while not return_queue.empty():
-            results.append(return_queue.get())
-        results = {k: v for d in results for k, v in d.items()}
-        success_num = np.array([v['success'] for v in results.values()]).sum()
-        # 合并结果
-        return 0, int(success_num), results
-
-    dp = DP(args)
-    Demo_class = class_decorator(args['task_name'])
-
-    Demo_class.suc = 0
-    Demo_class.test_num =0
-
-    now_id = 0
-    succ_seed = 0
-    suc_test_seed_list = []
-    
-
-    now_seed = st_seed
-    while succ_seed < test_num:
-        render_freq = args['render_freq']
-        args['render_freq'] = 0
-        
-        if expert_check:
-            try:
-                Demo_class.setup_demo(now_ep_num=now_id, seed = now_seed, is_test = True, ** args)
-                Demo_class.play_once()
-                Demo_class.close()
-            except Exception as e:
-                stack_trace = traceback.format_exc()
-                print(' -------------')
-                print('Error: ', stack_trace)
-                print(' -------------')
-                Demo_class.close()
-                now_seed += 1
-                args['render_freq'] = render_freq
-                print('error occurs !')
-                continue
-
-        if (not expert_check) or ( Demo_class.plan_success and Demo_class.check_success() ):
-            succ_seed +=1
-            suc_test_seed_list.append(now_seed)
-        else:
-            now_seed += 1
-            args['render_freq'] = render_freq
-            continue
-
-
-        args['render_freq'] = render_freq
-
-        dst_dir = os.path.join(args['save_dir'], "vis", f"{now_id}_{now_seed}")
-        os.makedirs(dst_dir, exist_ok=True)
-        os.environ["DEBUG_DIR"] = dst_dir
-
-        Demo_class.setup_demo(now_ep_num=now_id, seed = now_seed, is_test = True, ** args)
-        Demo_class.apply_dp(dp, args)
-
-        now_id += 1
-        Demo_class.close()
-        if Demo_class.render_freq:
-            Demo_class.viewer.close()
-        dp.runner.reset_obs()
-        print(f"{task_name} success rate: {Demo_class.suc}/{Demo_class.test_num}, current seed: {now_seed}\n")
-        Demo_class._take_picture()
-        now_seed += 1
-
-    return now_seed, Demo_class.suc, None
+    results = []
+    while not return_queue.empty():
+        results.append(return_queue.get())
+    results = {k: v for d in results for k, v in d.items()}
+    success_num = np.array([v['success'] for v in results.values()]).sum()
+    # 合并结果
+    return 0, int(success_num), results
 
 def get_camera_config(camera_type):
     camera_config_path = Path(parent_directory).parent / 'task_config' / '_camera_config.yml'
