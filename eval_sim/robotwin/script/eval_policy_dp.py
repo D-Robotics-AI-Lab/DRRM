@@ -183,7 +183,7 @@ class DP:
     
     def get_action(self, observation=None):
         device = str(self.policy.device)
-        if isinstance(self.dtype, torch.float32):
+        if self.dtype == torch.float32:
             action = self.runner.get_action(self.policy, observation)
         else:
             with torch.autocast(device_type=device, dtype=self.dtype):
