@@ -12,7 +12,7 @@ model:
       dim_2d: None
       load_vggt_heads: false
       load_vggt_pretrain: true
-      vggt_model_path: /root/data/projects/embodiedai/RoboticsManipulation/RoboticsManipulation/checkpoints/VGGT-1B/model.pt
+      vggt_model_path: pretrained/VGGT-1B/model.pt
       mlp_ratio: 2.0
       intermediate_layer_idx: [4, 11, 17, 23]
       injector_config:
@@ -23,9 +23,10 @@ model:
       model_adapter_config:
         shape_out: [1, 1]
         dim_out: 512
+  out_channels: ${model.obs_encoder.out_channels}
 
 train_dataset:
-  root: /root/data/projects/embodiedai/RoboticsManipulation/RoboticsManipulation/data/lerobot/dual_bottles_pick_hard_D435_drrm
+  root: datasets/lerobot/dual_bottles_pick_hard_D435_drrm
   repo_id: D-robotics/dual_bottles_pick_hard_D435_drrm
   npy_feature_keys: ['spatial_tokens_4', 'spatial_tokens_11', 'spatial_tokens_17', 'spatial_tokens_23', 'image_tokens_pos']
   dataset_metadata:

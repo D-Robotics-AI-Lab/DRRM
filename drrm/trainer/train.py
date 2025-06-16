@@ -3,11 +3,13 @@ import logging
 import os
 from pathlib import Path
 import hydra
+from omegaconf import OmegaConf
 
 import diffusers
 import torch
 from torch.utils.data import RandomSampler, BatchSampler
 import transformers
+from transformers import AutoConfig, AutoModel
 from transformers.models.deit.image_processing_deit import valid_images
 from accelerate import Accelerator
 from accelerate.utils import ProjectConfiguration, set_seed
@@ -46,6 +48,16 @@ def log_sample_res(policy_model, args, dataloader, logger):
     torch.cuda.empty_cache()
 
     return dict(loss_for_log)
+
+def get_normalizer():
+    raise NotImplementedError
+
+def save_policy():
+    pass
+
+def resume_policy(ckp_path, ema_policy_model):
+    load_model(ema_policy_model, os.path.join(ckp_path, "model.safetensors"), strict=False)
+    return ema_policy_model
 
 def train(args, logger):
     accelerator = Accelerator(
@@ -90,7 +102,12 @@ def train(args, logger):
         weight_dtype = torch.bfloat16
 
     # Policy Model creation
-    policy_model = hydra.utils.instantiate(args.model)
+    # policy_model = hydra.utils.instantiate(args.model)
+    model_args = OmegaConf.to_container(args.model)
+    PolicyConfigClass = hydra.utils.get_class(model_args.pop('target_config'))
+    PolicyClass = hydra.utils.get_class(model_args.pop('target_polciy'))
+    config = PolicyConfigClass.from_dict(model_args)
+    policy_model = PolicyClass(config)
     policy_model.to(accelerator.device)
 
     ema_policy_model = copy.deepcopy(policy_model)
@@ -226,8 +243,9 @@ def train(args, logger):
                 logger.info("Resuming training state failed. Attempting to only load from model checkpoint.")
                 checkpoint = torch.load(os.path.join(args.output_dir, path, "pytorch_model", "mp_rank_00_model_states.pt"))
                 policy_model.module.load_state_dict(checkpoint["module"])
-                
-            load_model(ema_policy_model, os.path.join(args.output_dir, path, "ema", "model.safetensors"), strict=False)
+            
+            checkpoint_path = os.path.join(args.output_dir, path)
+            load_model(ema_policy_model, os.path.join(checkpoint_path, "model.safetensors"), strict=False)
             global_step = int(path.split("-")[1])
 
             # normalizer is not load to device by default, so we need to do it manually
