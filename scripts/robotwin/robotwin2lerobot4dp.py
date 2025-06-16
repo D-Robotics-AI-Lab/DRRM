@@ -15,7 +15,7 @@ TASK_STR = "dual bottles pick easy"
 CAMERA_SHAPE = (240, 320, 3)
 # Feature schema definition for the LeRobot dataset
 FEATURES = {
-    "head_cam": {"dtype": "video", "shape": CAMERA_SHAPE, "names": ["h", "w", "c"]},
+    "head_cam": {"dtype": "image", "shape": CAMERA_SHAPE, "names": ["h", "w", "c"]},
     "endpose": {"dtype": "float32", "shape": (14,), "names": ["endpose"]},
     "agent_pos": {"dtype": "float32", "shape": (14,), "names": ["agent_pos"]},
     "action": {"dtype": "float32", "shape": (14,), "names": ["action"]},
@@ -58,7 +58,7 @@ def main(args):
         robot_type="AgileBot",
         features=FEATURES,
         image_writer_threads=4,  # Use async PNG writing to improve I/O performance
-        use_videos=True,
+        use_videos=False,
     )
     for episode_idx in range(len([d for d in os.listdir(args.src_dir) if os.path.isdir(os.path.join(args.src_dir, d))])):
         episode_dir = Path(os.path.join(args.src_dir, f"episode{episode_idx}"))
