@@ -12,7 +12,9 @@ model:
       vggt_model_path: /root/data/projects/embodiedai/RoboticsManipulation/RoboticsManipulation/checkpoints/VGGT-1B/model.pt
       mlp_ratio: 4.0
       intermediate_layer_idx: [4, 11, 17, 23]
+      interpolate: 'nearest'
       injector_config:
+        proj_type: "Linear"  # 'Linear' 'MLP' 'Nonlinear'
         fuse_2d: True
         fusion_method: "dim" # weight, gate, dim, mlp
         boardcast_block_num: 1
