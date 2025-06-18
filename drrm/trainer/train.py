@@ -143,7 +143,7 @@ def train(args, logger):
         "AutoConfig": pkg_config,
         "AutoModel": pkg_policy
     }
-    config = ConfigClass.from_customed_dict(model_args)
+    config = ConfigClass.from_dict(model_args)
     policy_model = PolicyClass(config)
     # policy_model = load_policy("checkpoints/dp_baseline/test", use_ckp_code = True)
     policy_model.to(accelerator.device)
