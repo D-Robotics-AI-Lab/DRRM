@@ -37,8 +37,11 @@ class DiffusionUnetImagePolicyConfig(PretrainedConfig):
     cond_predict_scale: bool = True
     out_channels: int = None
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        self.auto_map = {}
+        self.pkg_map = {}
         for key, value in kwargs.items():
             setattr(self, key, value)
     
@@ -55,11 +58,13 @@ class DiffusionUnetImagePolicyConfig(PretrainedConfig):
         return cls(**config_dict)
     
     @classmethod
-    def from_dict(cls, config_dict):
+    def from_obj(cls, config_dict):
         return cls(**config_dict)
 
 
 class DiffusionUnetImagePolicy(BasePolicy, PreTrainedModel, ModuleAttrMixin):
+    config_class = DiffusionUnetImagePolicyConfig
+
     def __init__(self, config: DiffusionUnetImagePolicyConfig):
         super().__init__(config)
         action_shape = config.shape_meta['action']['shape']

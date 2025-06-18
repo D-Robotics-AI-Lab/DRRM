@@ -23,9 +23,9 @@ model:
   out_channels: ${model.obs_encoder.out_channels}
 
 train_dataset:
-  root: datasets/lerobot/dual_bottles_pick_hard_D435_drrm
-  repo_id: D-robotics/dual_bottles_pick_hard_D435_drrm
-  npy_feature_keys: ['spatial_tokens_11', 'image_tokens_pos']
+  root: datasets/lerobot/dual_bottles_pick_hard_D435
+  repo_id: D-robotics/dual_bottles_pick_hard_D435
+  npy_feature_keys: null
   dataset_metadata:
-    root: datasets/lerobot/dual_bottles_pick_hard_D435_drrm
-    repo_id: D-robotics/dual_bottles_pick_hard_D435_drrm
+    root: ${train_dataset.root}
+    repo_id: ${train_dataset.repo_id}

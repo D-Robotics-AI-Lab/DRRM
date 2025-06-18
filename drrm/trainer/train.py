@@ -52,8 +52,44 @@ def log_sample_res(policy_model, args, dataloader, logger):
 def get_normalizer():
     raise NotImplementedError
 
-def save_policy():
-    pass
+def save_policy(accelerator, save_path, ema_policy_model = None):
+    import inspect
+    import shutil
+    polciy = accelerator._models[0]
+    PolicyClass = polciy.__class__
+    PolicyConfigClass = polciy.config_class
+    code_path = inspect.getfile(PolicyClass)
+    code_name = os.path.basename(code_path)
+    emvis_config = polciy.config.obs_encoder['emvis_config']
+    emvis_config['load_vggt_pretrain'] = False
+    emvis_config['load_vggt_heads'] = False
+    emvis_config['visualize'] = False
+    polciy.config.auto_map = {
+        "AutoConfig": f"{os.path.splitext(code_name)[0]}.{PolicyConfigClass.__name__}",
+        "AutoModel": f"{os.path.splitext(code_name)[0]}.{PolicyClass.__name__}"
+    }
+    accelerator.save_state(save_path)
+    if ema_policy_model!=None:
+        ema_save_path = os.path.join(save_path, f"ema")
+        accelerator.save_model(ema_policy_model, ema_save_path)
+    shutil.copy(code_path, os.path.join(save_path, code_name))
+    
+def load_policy(ckp_path, use_ckp_code = True):
+    if use_ckp_code:
+        policy_model = AutoModel.from_pretrained(ckp_path, trust_remote_code=True)
+        # load state dict of normalizer
+        load_model(policy_model, os.path.join(ckp_path, "model.safetensors"), strict=False)
+    else:
+        # get package path from checkpoint config
+        config = AutoConfig.from_pretrained(ckp_path, trust_remote_code=True) 
+        ConfigClass = hydra.utils.get_class(config.pkg_map['AutoConfig'])
+        PolicyClass = hydra.utils.get_class(config.pkg_map['AutoModel'])
+        # reload config by packege class
+        config = ConfigClass.from_pretrained(ckp_path)
+        policy_model = PolicyClass(config)
+        # load state dict of normalizer
+        load_model(policy_model, os.path.join(ckp_path, "model.safetensors"), strict=False)
+    return policy_model
 
 def resume_policy(ckp_path, ema_policy_model):
     load_model(ema_policy_model, os.path.join(ckp_path, "model.safetensors"), strict=False)
@@ -102,12 +138,18 @@ def train(args, logger):
         weight_dtype = torch.bfloat16
 
     # Policy Model creation
-    # policy_model = hydra.utils.instantiate(args.model)
     model_args = OmegaConf.to_container(args.model)
-    PolicyConfigClass = hydra.utils.get_class(model_args.pop('target_config'))
-    PolicyClass = hydra.utils.get_class(model_args.pop('target_polciy'))
-    config = PolicyConfigClass.from_dict(model_args)
+    pkg_config = model_args.pop('target_config')
+    pkg_policy = model_args.pop('target_polciy')
+    ConfigClass = hydra.utils.get_class(pkg_config)
+    PolicyClass = hydra.utils.get_class(pkg_policy)
+    model_args['pkg_map'] = {
+        "AutoConfig": pkg_config,
+        "AutoModel": pkg_policy
+    }
+    config = ConfigClass.from_dict(model_args)
     policy_model = PolicyClass(config)
+    # policy_model = load_policy("checkpoints/dp_baseline/test", use_ckp_code = True)
     policy_model.to(accelerator.device)
 
     ema_policy_model = copy.deepcopy(policy_model)
@@ -126,8 +168,9 @@ def train(args, logger):
         if accelerator.is_main_process:
             for model in models:
                 model_to_save = model.module if hasattr(model, "module") else model  # type: ignore
-                if isinstance(model_to_save, type(accelerator.unwrap_model(policy_model))):
-                    model_to_save.save_pretrained(output_dir)
+                # if isinstance(model_to_save, type(accelerator.unwrap_model(policy_model))):
+                #     model_to_save.save_pretrained(output_dir)
+                save_policy(accelerator, output_dir, ema_policy_model = None)
 
     accelerator.register_save_state_pre_hook(save_model_hook)
 
@@ -198,7 +241,7 @@ def train(args, logger):
     )
 
     ema_policy_model.to(accelerator.device, dtype=weight_dtype)                                                                             
-
+    # save_policy(accelerator, "checkpoints/dp_baseline/test", ema_policy_model)
 
     # We need to initialize the trackers we use, and also store our configuration.
     # The trackers initializes automatically on the main process.
@@ -283,9 +326,10 @@ def train(args, logger):
 
             if global_step % args.checkpointing_period == 0:
                 save_path = os.path.join(args.output_dir, f"checkpoint-{global_step}")
-                accelerator.save_state(save_path)
-                ema_save_path = os.path.join(save_path, f"ema")
-                accelerator.save_model(ema_policy_model, ema_save_path)
+                save_policy(accelerator, save_path, ema_policy_model = ema_policy_model)
+                # accelerator.save_state(save_path)
+                # ema_save_path = os.path.join(save_path, f"ema")
+                # accelerator.save_model(ema_policy_model, ema_save_path)
                 logger.info(f"Saved state to {save_path}")
 
             if args.val_period > 0 and global_step % args.val_period == 0:

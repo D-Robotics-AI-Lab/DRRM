@@ -24,6 +24,7 @@ class DictOfTensorMixin(nn.Module):
 
         def load_dict(state_dict, prefix):
             out_dict = nn.ParameterDict()
+            consumed_keys = []
             for key, value in state_dict.items():
                 value: torch.Tensor
                 if key.startswith(prefix):
@@ -31,8 +32,12 @@ class DictOfTensorMixin(nn.Module):
                     # if len(param_keys) == 0:
                     #     import pdb; pdb.set_trace()
                     dfs_add(out_dict, param_keys, value.clone())
-            return out_dict
+                    consumed_keys.append(key)
+            return out_dict, consumed_keys
 
-        self.params_dict = load_dict(state_dict, prefix + 'params_dict')
+        self.params_dict, consumed = load_dict(state_dict, prefix + 'params_dict')
         self.params_dict.requires_grad_(False)
-        return 
+        
+        for key in consumed:
+            if key in unexpected_keys:
+                unexpected_keys.remove(key)
