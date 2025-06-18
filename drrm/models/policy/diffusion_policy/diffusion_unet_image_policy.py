@@ -46,19 +46,19 @@ class DiffusionUnetImagePolicyConfig(PretrainedConfig):
             setattr(self, key, value)
     
     @classmethod
-    def from_yaml(cls, yaml_path: str):
+    def from_customed_yaml(cls, yaml_path: str):
         with open(yaml_path, 'r') as f:
             config_dict = yaml.safe_load(f)
         return cls(**config_dict)
     
     @classmethod
-    def from_json(cls, json_path: str):
+    def from_customed_json(cls, json_path: str):
         with open(json_path, 'r') as f:
             config_dict = json.load(f)
         return cls(**config_dict)
     
     @classmethod
-    def from_obj(cls, config_dict):
+    def from_customed_dict(cls, config_dict):
         return cls(**config_dict)
 
 
@@ -239,8 +239,7 @@ class DiffusionUnetImagePolicy(BasePolicy, PreTrainedModel, ModuleAttrMixin):
 
     # ========= training  ============
     def set_normalizer(self, normalizer: LinearNormalizer):
-        self.normalizer = normalizer
-        # self.normalizer.load_state_dict(normalizer.state_dict())
+        self.normalizer.load_state_dict(normalizer.state_dict())
 
     def compute_loss(self, batch):
         # normalize input

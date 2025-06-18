@@ -52,26 +52,22 @@ def log_sample_res(policy_model, args, dataloader, logger):
 def get_normalizer():
     raise NotImplementedError
 
-def save_policy(accelerator, save_path, ema_policy_model = None):
+def save_policy_config(polciy, save_path):
     import inspect
     import shutil
-    polciy = accelerator._models[0]
     PolicyClass = polciy.__class__
     PolicyConfigClass = polciy.config_class
     code_path = inspect.getfile(PolicyClass)
     code_name = os.path.basename(code_path)
-    emvis_config = polciy.config.obs_encoder['emvis_config']
-    emvis_config['load_vggt_pretrain'] = False
-    emvis_config['load_vggt_heads'] = False
-    emvis_config['visualize'] = False
+    if 'emvis_config' in polciy.config.obs_encoder:
+        emvis_config = polciy.config.obs_encoder['emvis_config']
+        emvis_config['load_vggt_pretrain'] = False
+        emvis_config['load_vggt_heads'] = False
+        emvis_config['visualize'] = False
     polciy.config.auto_map = {
         "AutoConfig": f"{os.path.splitext(code_name)[0]}.{PolicyConfigClass.__name__}",
         "AutoModel": f"{os.path.splitext(code_name)[0]}.{PolicyClass.__name__}"
     }
-    accelerator.save_state(save_path)
-    if ema_policy_model!=None:
-        ema_save_path = os.path.join(save_path, f"ema")
-        accelerator.save_model(ema_policy_model, ema_save_path)
     shutil.copy(code_path, os.path.join(save_path, code_name))
     
 def load_policy(ckp_path, use_ckp_code = True):
@@ -147,7 +143,7 @@ def train(args, logger):
         "AutoConfig": pkg_config,
         "AutoModel": pkg_policy
     }
-    config = ConfigClass.from_dict(model_args)
+    config = ConfigClass.from_customed_dict(model_args)
     policy_model = PolicyClass(config)
     # policy_model = load_policy("checkpoints/dp_baseline/test", use_ckp_code = True)
     policy_model.to(accelerator.device)
@@ -168,9 +164,9 @@ def train(args, logger):
         if accelerator.is_main_process:
             for model in models:
                 model_to_save = model.module if hasattr(model, "module") else model  # type: ignore
-                # if isinstance(model_to_save, type(accelerator.unwrap_model(policy_model))):
-                #     model_to_save.save_pretrained(output_dir)
-                save_policy(accelerator, output_dir, ema_policy_model = None)
+                if isinstance(model_to_save, type(accelerator.unwrap_model(policy_model))):
+                    save_policy_config(model_to_save, output_dir)
+                    model_to_save.save_pretrained(output_dir)
 
     accelerator.register_save_state_pre_hook(save_model_hook)
 
@@ -240,8 +236,7 @@ def train(args, logger):
         policy_model, optimizer, train_dataloader, val_dataloader, lr_scheduler                   
     )
 
-    ema_policy_model.to(accelerator.device, dtype=weight_dtype)                                                                             
-    # save_policy(accelerator, "checkpoints/dp_baseline/test", ema_policy_model)
+    ema_policy_model.to(accelerator.device, dtype=weight_dtype)
 
     # We need to initialize the trackers we use, and also store our configuration.
     # The trackers initializes automatically on the main process.
@@ -326,10 +321,9 @@ def train(args, logger):
 
             if global_step % args.checkpointing_period == 0:
                 save_path = os.path.join(args.output_dir, f"checkpoint-{global_step}")
-                save_policy(accelerator, save_path, ema_policy_model = ema_policy_model)
-                # accelerator.save_state(save_path)
-                # ema_save_path = os.path.join(save_path, f"ema")
-                # accelerator.save_model(ema_policy_model, ema_save_path)
+                accelerator.save_state(save_path)
+                ema_save_path = os.path.join(save_path, f"ema")
+                accelerator.save_model(ema_policy_model, ema_save_path)
                 logger.info(f"Saved state to {save_path}")
 
             if args.val_period > 0 and global_step % args.val_period == 0:
