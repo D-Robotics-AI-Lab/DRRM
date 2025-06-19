@@ -1,0 +1,52 @@
+defaults:
+  - dp_baseline
+  - _self_
+
+shape_meta:
+  # acceptable types: rgb, low_dim
+  obs:
+    head_cam:
+      shape: ${image_shape}
+      type: rgb
+    front_cam:
+      shape: ${image_shape}
+      type: rgb
+    # left_cam:
+    #   shape: *image_shape
+    #   type: rgb
+    # right_cam:
+    #   shape: *image_shape
+    #   type: rgb
+    agent_pos:
+      shape: [14]
+      type: low_dim
+
+model:
+  obs_encoder:
+    _target_: drrm.models.policy.diffusion_policy.multi_image_obs_encoder_emvis_exp1.MultiImageObsEncoderEmvisExp1
+    out_channels: 1038
+    rgb_key: ["head_cam", "front_cam"]
+    emvis_config:
+      dim_2d: None
+      load_vggt_heads: true
+      load_vggt_pretrain: true
+      vggt_model_path: /workspace/RoboticsManipulation/checkpoints/VGGT-1B/model.pt
+      mlp_ratio: 1.0
+      intermediate_layer_idx: [4, 11, 17, 23]
+      interpolate: 'nearest'
+      injector_config:
+        proj_type: "Linear"  # 'Linear' 'MLP' 'Nonlinear'
+        fuse_2d: False
+        drop_p: 0.0
+        ffn_layer_num: 1
+      model_adapter_config:
+        shape_out: [1, 1]
+        dim_out: 512
+
+train_dataset:
+  root: /root/data/projects/embodiedai/RoboticsManipulation/RoboticsManipulation/data/lerobot/dual_bottles_pick_hard_D435_drrm
+  repo_id: D-robotics/dual_bottles_pick_hard_D435_drrm
+  npy_feature_keys: null
+  dataset_metadata:
+    root: ${train_dataset.root}
+    repo_id: ${train_dataset.repo_id}
