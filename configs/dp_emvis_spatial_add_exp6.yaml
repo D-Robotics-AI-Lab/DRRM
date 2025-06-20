@@ -27,22 +27,23 @@ model:
     out_channels: 1038
     rgb_key: ["head_cam", "front_cam"]
     emvis_config:
-      dim_2d: None
-      load_vggt_heads: true
-      load_vggt_pretrain: true
-      vggt_model_path: /root/projects/RoboticsManipulation/checkpoints/VGGT-1B/model.pt
+      load_vggt_pretrain: True
+      # 'load_vggt_heads': True
+      vggt_model_path: /workspace/RoboticsManipulation/checkpoints/VGGT-1B/model.pt
       mlp_ratio: 1.0
+      drop_p: 0.
+      ft_layer_idx: []
       intermediate_layer_idx: [4, 11, 17, 23]
-      interpolate: 'nearest'
-      visualize: true
-      injector_config:
-        proj_type: "Linear"  # 'Linear' 'MLP' 'Nonlinear'
-        fuse_2d: False
-        drop_p: 0.0
-        ffn_layer_num: 1
-      model_adapter_config:
-        shape_out: [1, 1]
-        dim_out: 512
+      interpolate: 'bicubic'
+      injector_config: 
+          fuse_2d: False
+          ffn_layer_num: 1
+      model_adapter_config: 
+          shape_out: [1,1]
+          dim_out: 512
+      mv_fuser_config: 
+          view_num: 2
+          ffn_layer_num: 1
 
 train_dataset:
   root: /root/data/projects/embodiedai/RoboticsManipulation/RoboticsManipulation/data/lerobot/dual_bottles_pick_hard_D435_drrm
