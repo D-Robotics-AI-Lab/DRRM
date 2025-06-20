@@ -30,10 +30,11 @@ model:
       dim_2d: None
       load_vggt_heads: true
       load_vggt_pretrain: true
-      vggt_model_path: /workspace/RoboticsManipulation/checkpoints/VGGT-1B/model.pt
+      vggt_model_path: /root/projects/RoboticsManipulation/checkpoints/VGGT-1B/model.pt
       mlp_ratio: 1.0
       intermediate_layer_idx: [4, 11, 17, 23]
       interpolate: 'nearest'
+      visualize: true
       injector_config:
         proj_type: "Linear"  # 'Linear' 'MLP' 'Nonlinear'
         fuse_2d: False
