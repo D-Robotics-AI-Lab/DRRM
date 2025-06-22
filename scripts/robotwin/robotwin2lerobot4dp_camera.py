@@ -1,3 +1,14 @@
+"""
+Convert *.pkl episodes to LeRobot v2.1 dataset format with video support.
+
+Usage:
+CUDA_VISIBLE_DEVICES=4 python scripts/robotwin/robotwin2lerobot4dp_camera.py \
+    --src_dir ./.data/container_place_D435_pkl \
+    --dst_dir /workspace/.cache/huggingface/lerobot/D-robotics/container_place_D435_dual_view \
+    --repo D-robotics/container_place_D435_dual_view \
+    --fps 40
+"""
+
 import os
 import pickle
 from dataclasses import dataclass
@@ -5,17 +16,24 @@ from pathlib import Path
 from typing import Dict, Any
 import numpy as np
 import argparse
-from loguru import logger
+import logging
 import shutil
 
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 
+# Set up logger
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
 # Constants
-TASK_STR = "dual bottles pick easy"
+TASK_STR = "Use both arms to pick up two bottles and place them on the plate."
 CAMERA_SHAPE = (240, 320, 3)
 # Feature schema definition for the LeRobot dataset
 FEATURES = {
     "head_cam": {"dtype": "image", "shape": CAMERA_SHAPE, "names": ["h", "w", "c"]},
+    # "left_cam": {"dtype": "image", "shape": CAMERA_SHAPE, "names": ["h", "w", "c"]},
+    # "right_cam": {"dtype": "image", "shape": CAMERA_SHAPE, "names": ["h", "w", "c"]},
+    "front_cam": {"dtype": "image", "shape": CAMERA_SHAPE, "names": ["h", "w", "c"]},
     "endpose": {"dtype": "float32", "shape": (14,), "names": ["endpose"]},
     "agent_pos": {"dtype": "float32", "shape": (14,), "names": ["agent_pos"]},
     "action": {"dtype": "float32", "shape": (14,), "names": ["action"]},
@@ -30,6 +48,9 @@ def _extract_frame(data: Dict[str, Any]) -> Dict[str, Any]:
         "action": data["joint_action"].astype(np.float32),
         "endpose": data["endpose"].astype(np.float32),
         "head_cam": data["observation"]["head_camera"]["rgb"].astype(np.float32) / 255.0,
+        # "left_cam": data["observation"]["left_camera"]["rgb"].astype(np.float32) / 255.0,
+        # "right_cam": data["observation"]["right_camera"]["rgb"].astype(np.float32) / 255.0,
+        "front_cam": data["observation"]["front_camera"]["rgb"].astype(np.float32) / 255.0,
     }
 
 def _process_episode(dataset: LeRobotDataset, episode_dir: Path) -> None:

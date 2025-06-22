@@ -16,7 +16,7 @@ class MultiImageObsEncoderEmvisExp1(ModuleAttrMixin):
     def __init__(self,
         emvis_config: dict = None,
         out_channels: int = None,
-        rgb_key: str = 'head_cam',
+        rgb_key: list[str] = ['head_cam'],
         state_key: str = 'agent_pos',
         **kwargs
         ):
@@ -63,10 +63,12 @@ class MultiImageObsEncoderEmvisExp1(ModuleAttrMixin):
             emvis_feat = self.scene_encoder(vggt_token_dict=vggt_tokens_dict).squeeze(1).squeeze(1)
             features.append(emvis_feat)
         else:
-            rgb_image = obs_dict[self.rgb_key].unsqueeze(1)
+            BS = obs_dict[self.state_key].shape[0]
+            rgb_image = torch.cat([obs_dict[key].unsqueeze(1) for key in self.rgb_key], dim=1) # BS, V, C, H, W 
             # 重塑图像形状并归一化到0-1范围
             rgb_image = (rgb_image + 1) / 2  # 从[-1,1]归一化到[0,1]
-            emvis_feat = self.scene_encoder(rgb_image).squeeze(1).squeeze(1)
+            emvis_feat = self.scene_encoder(rgb_image)   # BS, V, C, H, W -> BS, V, 1, dim
+            emvis_feat = emvis_feat.reshape(BS, -1)      # BS, V*dim
             features.append(emvis_feat)
         
         # process lowdim input
@@ -74,7 +76,7 @@ class MultiImageObsEncoderEmvisExp1(ModuleAttrMixin):
         features.append(agent_pos)
         
         # concatenate all features
-        result = torch.cat(features, dim=-1)
+        result = torch.cat(features, dim=-1)  # 512 * 2 + 14 = 1038
         return result
     
     def output_shape(self):

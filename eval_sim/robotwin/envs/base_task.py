@@ -1255,7 +1255,10 @@ class Base_task(gym.Env):
         frames = 0
 
         eval_video_log = args['eval_video_log']
-        video_size = str(args['head_camera_w']) + 'x' + str(args['head_camera_h'])
+        # 修改视频尺寸为两个摄像头水平拼接的宽度
+        video_width = args['head_camera_w'] + args['front_camera_w']
+        video_height = max(args['head_camera_h'], args['front_camera_h'])
+        video_size = str(video_width) + 'x' + str(video_height)
         save_dir = args['save_dir']
         os.makedirs(save_dir, exist_ok=True)
 
@@ -1286,7 +1289,11 @@ class Base_task(gym.Env):
 
         observation = self.get_obs()
         if eval_video_log:
-            ffmpeg.stdin.write(observation['observation']['head_camera']['rgb'].tobytes())
+            # 获取head_camera和front_camera的图片并水平拼接
+            head_img = observation['observation']['head_camera']['rgb']
+            front_img = observation['observation']['front_camera']['rgb']
+            concat_img = np.concatenate([head_img, front_img], axis=1)
+            ffmpeg.stdin.write(concat_img.tobytes())
             frames += 1
 
         while cnt < self.step_lim:
@@ -1412,7 +1419,11 @@ class Base_task(gym.Env):
             
             self. _update_render()
             if eval_video_log:
-                ffmpeg.stdin.write(observation['observation']['head_camera']['rgb'].tobytes())
+                # 获取head_camera和front_camera的图片并水平拼接
+                head_img = observation['observation']['head_camera']['rgb']
+                front_img = observation['observation']['front_camera']['rgb']
+                concat_img = np.concatenate([head_img, front_img], axis=1)
+                ffmpeg.stdin.write(concat_img.tobytes())
                 frames += 1
             if self.render_freq:
                 self.viewer.render()
