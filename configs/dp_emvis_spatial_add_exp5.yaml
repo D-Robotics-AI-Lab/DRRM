@@ -12,16 +12,15 @@ model:
       # dim_2d: None
       load_vggt_heads: true
       load_vggt_pretrain: true
-      vggt_model_path: /root/data/projects/embodiedai/RoboticsManipulation/RoboticsManipulation/checkpoints/VGGT-1B/model.pt
+      vggt_model_path: checkpoints/VGGT-1B/model.pt
       mlp_ratio: 1.0
       intermediate_layer_idx: [4, 11, 17, 23]
-      ft_layer_idx: [4, 11, 17, 23]
-      interpolate: 'nearest'
+      ft_layer_idx: []
+      interpolate: 'bicubic'
       injector_config:
-        proj_type: "Linear"  # 'Linear' 'MLP' 'Nonlinear'
         fuse_2d: False
         drop_p: 0.0
-        ffn_layer_num: 0
+        ffn_layer_num: 1
       model_adapter_config:
         shape_out: [1, 1]
         dim_out: 512

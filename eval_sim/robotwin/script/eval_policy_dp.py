@@ -167,7 +167,7 @@ class DP:
             self.dtype = torch.float32
         
         self.policy = hydra.utils.instantiate(model_cfg.model)
-        load_model(self.policy, os.path.join(cfg.checkpoint_dir, "model.safetensors"), strict=False)    # TODO: strict=False
+        load_model(self.policy, os.path.join(cfg.checkpoint_dir, "model.safetensors"), strict=True)    # TODO: strict=False
         self.policy.eval()
         self.policy.to('cuda')
 
@@ -208,16 +208,16 @@ def test_policy_worker(task_name, args_copy, seed, need, lock, test_num, log_pat
             Demo_class_copy.play_once()
             Demo_class_copy.close()
         if (not expert_check) or (Demo_class_copy.plan_success and Demo_class_copy.check_success()):
-            with lock:  # 再次加锁更新共享状态
+            with lock: 	# 再次加锁更新共享状态
                 if need.value > 0:
                     now_id = test_num-need.value
                     need.value -= 1
-            
+                else: continue
             ind = now_id+1
             result = {'seed': now_seed, 'success': None}
             results[ind] = result
             args_copy['render_freq'] = render_freq
-            dst_dir = os.path.join(args_copy['save_dir'], "vis", f"{now_id}_{now_seed}")
+            dst_dir = os.path.join(args_copy['save_dir'], "vis", f"{ind}_{now_seed}")
             os.makedirs(dst_dir, exist_ok=True)
             os.environ["DEBUG_DIR"] = dst_dir
             t0 = time.time()
@@ -352,7 +352,7 @@ def main(args):
 
     st_seed = 100000 * (1+cfg['expert_seed'])
     suc_nums = []
-    test_num = 100
+    test_num = 10
     topk = 1
 
     # dp = DP(cfg)
