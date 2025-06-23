@@ -10,7 +10,7 @@ model:
     out_channels: 526
     emvis_config:
       load_vggt_pretrain: true
-      vggt_model_path: /root/data/projects/embodiedai/RoboticsManipulation/RoboticsManipulation/checkpoints/VGGT-1B/model.pt
+      vggt_model_path: checkpoints/VGGT-1B/model.pt
       mlp_ratio: 4.0
       intermediate_layer_idx: [23]
       model_adapter_config:
