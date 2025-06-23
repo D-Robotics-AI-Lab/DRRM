@@ -16,6 +16,7 @@ CAMERA_SHAPE = (240, 320, 3)
 # Feature schema definition for the LeRobot dataset
 FEATURES = {
     "head_cam": {"dtype": "image", "shape": CAMERA_SHAPE, "names": ["h", "w", "c"]},
+    "front_cam": {"dtype": "image", "shape": CAMERA_SHAPE, "names": ["h", "w", "c"]},
     "endpose": {"dtype": "float32", "shape": (14,), "names": ["endpose"]},
     "agent_pos": {"dtype": "float32", "shape": (14,), "names": ["agent_pos"]},
     "action": {"dtype": "float32", "shape": (14,), "names": ["action"]},
@@ -30,6 +31,7 @@ def _extract_frame(data: Dict[str, Any]) -> Dict[str, Any]:
         "action": data["joint_action"].astype(np.float32),
         "endpose": data["endpose"].astype(np.float32),
         "head_cam": data["observation"]["head_camera"]["rgb"].astype(np.float32) / 255.0,
+        "front_cam": data["observation"]["front_camera"]["rgb"].astype(np.float32) / 255.0,
     }
 
 def _process_episode(dataset: LeRobotDataset, episode_dir: Path) -> None:
