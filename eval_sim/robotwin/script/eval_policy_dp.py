@@ -26,7 +26,7 @@ parent_directory = os.path.dirname(current_file_path)
 
 def format_result(key: int, res: dict):
     s = f"【{key:03d}】"
-    for k in  ['seed', 'success', 'frames', 'time', 'fps', 'start', 'end', 'cnt', 'limit']:
+    for k in  ['seed', 'success', 'frames', 'time', 'fps', 'start', 'end', 'cnt', 'limit', 'pid', 'device']:
         if not k in res: continue
         elif k == 'time': 
             s += f"{k}: {int(res[k]):03d} s, "
@@ -167,7 +167,7 @@ class DP:
             self.dtype = torch.float32
         
         self.policy = hydra.utils.instantiate(model_cfg.model)
-        load_model(self.policy, os.path.join(cfg.checkpoint_dir, "model.safetensors"), strict=True)    # TODO: strict=False
+        load_model(self.policy, os.path.join(cfg.checkpoint_dir, "model.safetensors"), strict=False)    # TODO: strict=False
         self.policy.eval()
         self.policy.to('cuda')
 
@@ -234,7 +234,7 @@ def test_policy_worker(task_name, args_copy, seed, need, lock, test_num, log_pat
             delta = t1 - t0
             result.update(
                 success = success, end = t1, time = delta, frames = frames,
-                count = count, limit = limit, fps = frames/delta,
+                count = count, limit = limit, fps = frames/delta, device = gpu_id, pid = os.getpid()
             )
             log_result(log_path, ind, result, log_lock)
 
@@ -263,6 +263,7 @@ def test_policy(task_name, args, st_seed, test_num=20, num_process=1):
         # To use CUDA with multiprocessing, you must use the 'spawn' start method
         mp.set_start_method('spawn', force=True)
         processes = []
+        results = []
         return_queue = Queue()
         gpu_num = torch.cuda.device_count()
         for i in range(num_process):
@@ -273,12 +274,12 @@ def test_policy(task_name, args, st_seed, test_num=20, num_process=1):
             )
             processes.append(p)
             p.start()
-        for p in processes:
-            p.join()
+        # for p in processes:
+        #     p.join()
+        # while not return_queue.empty():
+        for i in range(num_process):
+            results.append(return_queue.get())
 
-    results = []
-    while not return_queue.empty():
-        results.append(return_queue.get())
     results = {k: v for d in results for k, v in d.items()}
     success_num = np.array([v['success'] for v in results.values()]).sum()
     # 合并结果
@@ -352,7 +353,7 @@ def main(args):
 
     st_seed = 100000 * (1+cfg['expert_seed'])
     suc_nums = []
-    test_num = 10
+    test_num = 100
     topk = 1
 
     # dp = DP(cfg)
