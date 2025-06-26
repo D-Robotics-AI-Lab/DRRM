@@ -1,0 +1,35 @@
+defaults:
+  - dp_baseline
+  - _self_
+
+
+
+model:
+  obs_encoder:
+    _target_: drrm.models.policy.diffusion_policy.multi_image_obs_encoder_emvis_exp1.MultiImageObsEncoderEmvisExp1
+    out_channels: 526
+    emvis_config:
+      dim_2d: null
+      load_vggt_heads: true
+      load_vggt_pretrain: true
+      vggt_model_path: checkpoints/VGGT-1B/model.pt
+      mlp_ratio: 1.0
+      drop_p: 0.0
+      intermediate_layer_idx: [4, 11, 17, 23]
+      ft_layer_idx: []
+      interpolate: 'bicubic'
+      injector_config: {}
+      model_adapter_config:
+        target: ResNetAdapter
+        shape_out: [1, 1]
+        dim_out: 512
+        conv_num: 5
+      mv_fuser_config: {}
+
+train_dataset:
+  root: /root/data/projects/embodiedai/RoboticsManipulation/RoboticsManipulation/data/lerobot/dual_bottles_pick_hard_D435_drrm
+  repo_id: D-robotics/dual_bottles_pick_hard_D435_drrm
+  npy_feature_keys: null
+  dataset_metadata:
+    root: ${train_dataset.root}
+    repo_id: ${train_dataset.repo_id}
