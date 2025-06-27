@@ -184,5 +184,5 @@ train_dataset:
   # - image_tokens_pos
   dataset_metadata:
     _target_: lerobot.common.datasets.lerobot_dataset.LeRobotDatasetMetadata
-    repo_id: D-robotics/dual_bottles_pick_hard_D435
-    root: /workspace/.cache/huggingface/lerobot/D-robotics/dual_bottles_pick_hard_D435
+    repo_id: ${train_dataset.repo_id}
+    root: ${train_dataset.root}
