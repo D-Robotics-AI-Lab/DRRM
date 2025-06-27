@@ -33,7 +33,7 @@ os.environ["HF_LEROBOT_HOME"] = "/workspace/.cache/huggingface/lerobot"
 import numpy as np
 import tyro
 from tqdm import tqdm
-from dataset.dp3_dataset import DP3Dataset
+from drrm.dataset.drrm_dataset import DRRMDataset
 
 
 
@@ -90,7 +90,7 @@ def _extract_frame(data: Dict[str, Any]) -> Dict[str, Any]:
         "endpose": data["endpose"].astype(np.float32),
     }
 
-def _process_episode(ds: DP3Dataset, ep_dir: Path, ep_idx: int) -> None:
+def _process_episode(ds: DRRMDataset, ep_dir: Path, ep_idx: int) -> None:
     """Convert a single episode and append its frames to *ds*."""
 
     logger.info("Processing episode %d", ep_idx)
@@ -116,7 +116,7 @@ def main(args: Args) -> None:  # noqa: D401  (simple function name is intentiona
     """Run conversion based on *args*."""
 
     # Create (or open) the target dataset
-    ds = DP3Dataset.create(
+    ds = DRRMDataset.create(
         repo_id=args.repo,
         fps=args.fps,
         robot_type="AgileBot",
