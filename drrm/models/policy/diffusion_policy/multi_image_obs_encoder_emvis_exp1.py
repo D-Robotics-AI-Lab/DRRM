@@ -64,10 +64,11 @@ class MultiImageObsEncoderEmvisExp1(ModuleAttrMixin):
             features.append(emvis_feat)
         else:
             BS = obs_dict[self.state_key].shape[0]
+            batch_size = BS // 3
             rgb_image = torch.cat([obs_dict[key].unsqueeze(1) for key in self.rgb_key], dim=1) # BS, V, C, H, W 
             # 重塑图像形状并归一化到0-1范围
             rgb_image = (rgb_image + 1) / 2  # 从[-1,1]归一化到[0,1]
-            emvis_feat = self.scene_encoder(rgb_image)   # BS, V, C, H, W -> BS, V, 1, dim
+            emvis_feat = self.scene_encoder(rgb_image, batch_size=batch_size)   # BS, V, C, H, W -> BS, V, 1, dim
             emvis_feat = emvis_feat.reshape(BS, -1)      # BS, V*dim
             features.append(emvis_feat)
         
