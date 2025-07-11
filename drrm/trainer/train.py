@@ -3,11 +3,13 @@ import logging
 import os
 from pathlib import Path
 import hydra
+from omegaconf import OmegaConf
 
 import diffusers
 import torch
 from torch.utils.data import RandomSampler, BatchSampler
 import transformers
+from transformers import AutoConfig, AutoModel
 from transformers.models.deit.image_processing_deit import valid_images
 from accelerate import Accelerator
 from accelerate.utils import ProjectConfiguration, set_seed
@@ -46,6 +48,48 @@ def log_sample_res(policy_model, args, dataloader, logger):
     torch.cuda.empty_cache()
 
     return dict(loss_for_log)
+
+def get_normalizer():
+    raise NotImplementedError
+
+def save_policy_config(polciy, save_path):
+    import inspect
+    import shutil
+    PolicyClass = polciy.__class__
+    PolicyConfigClass = polciy.config_class
+    code_path = inspect.getfile(PolicyClass)
+    code_name = os.path.basename(code_path)
+    if 'emvis_config' in polciy.config.obs_encoder:
+        emvis_config = polciy.config.obs_encoder['emvis_config']
+        emvis_config['load_vggt_pretrain'] = False
+        emvis_config['load_vggt_heads'] = False
+        emvis_config['visualize'] = False
+    polciy.config.auto_map = {
+        "AutoConfig": f"{os.path.splitext(code_name)[0]}.{PolicyConfigClass.__name__}",
+        "AutoModel": f"{os.path.splitext(code_name)[0]}.{PolicyClass.__name__}"
+    }
+    shutil.copy(code_path, os.path.join(save_path, code_name))
+    
+def load_policy(ckp_path, use_ckp_code = True):
+    if use_ckp_code:
+        policy_model = AutoModel.from_pretrained(ckp_path, trust_remote_code=True)
+        # load state dict of normalizer
+        load_model(policy_model, os.path.join(ckp_path, "model.safetensors"), strict=False)
+    else:
+        # get package path from checkpoint config
+        config = AutoConfig.from_pretrained(ckp_path, trust_remote_code=True) 
+        ConfigClass = hydra.utils.get_class(config.pkg_map['AutoConfig'])
+        PolicyClass = hydra.utils.get_class(config.pkg_map['AutoModel'])
+        # reload config by packege class
+        config = ConfigClass.from_pretrained(ckp_path)
+        policy_model = PolicyClass(config)
+        # load state dict of normalizer
+        load_model(policy_model, os.path.join(ckp_path, "model.safetensors"), strict=False)
+    return policy_model
+
+def resume_policy(ckp_path, ema_policy_model):
+    load_model(ema_policy_model, os.path.join(ckp_path, "model.safetensors"), strict=False)
+    return ema_policy_model
 
 def train(args, logger):
     accelerator = Accelerator(
@@ -90,7 +134,18 @@ def train(args, logger):
         weight_dtype = torch.bfloat16
 
     # Policy Model creation
-    policy_model = hydra.utils.instantiate(args.model)
+    model_args = OmegaConf.to_container(args.model)
+    pkg_config = model_args.pop('target_config')
+    pkg_policy = model_args.pop('target_polciy')
+    ConfigClass = hydra.utils.get_class(pkg_config)
+    PolicyClass = hydra.utils.get_class(pkg_policy)
+    model_args['pkg_map'] = {
+        "AutoConfig": pkg_config,
+        "AutoModel": pkg_policy
+    }
+    config = ConfigClass.from_dict(model_args)
+    policy_model = PolicyClass(config)
+    # policy_model = load_policy("checkpoints/dp_baseline/test", use_ckp_code = True)
     policy_model.to(accelerator.device)
 
     ema_policy_model = copy.deepcopy(policy_model)
@@ -110,6 +165,7 @@ def train(args, logger):
             for model in models:
                 model_to_save = model.module if hasattr(model, "module") else model  # type: ignore
                 if isinstance(model_to_save, type(accelerator.unwrap_model(policy_model))):
+                    save_policy_config(model_to_save, output_dir)
                     model_to_save.save_pretrained(output_dir)
 
     accelerator.register_save_state_pre_hook(save_model_hook)
@@ -180,8 +236,7 @@ def train(args, logger):
         policy_model, optimizer, train_dataloader, val_dataloader, lr_scheduler                   
     )
 
-    ema_policy_model.to(accelerator.device, dtype=weight_dtype)                                                                             
-
+    ema_policy_model.to(accelerator.device, dtype=weight_dtype)
 
     # We need to initialize the trackers we use, and also store our configuration.
     # The trackers initializes automatically on the main process.
@@ -226,8 +281,9 @@ def train(args, logger):
                 logger.info("Resuming training state failed. Attempting to only load from model checkpoint.")
                 checkpoint = torch.load(os.path.join(args.output_dir, path, "pytorch_model", "mp_rank_00_model_states.pt"))
                 policy_model.module.load_state_dict(checkpoint["module"])
-                
-            load_model(ema_policy_model, os.path.join(args.output_dir, path, "ema", "model.safetensors"), strict=False)
+            
+            checkpoint_path = os.path.join(args.output_dir, path)
+            load_model(ema_policy_model, os.path.join(checkpoint_path, "model.safetensors"), strict=False)
             global_step = int(path.split("-")[1])
 
             # normalizer is not load to device by default, so we need to do it manually

@@ -1,4 +1,5 @@
 from typing import Dict
+import hydra
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,32 +14,79 @@ from drrm.models.policy.diffusion_policy.common.normalizer import LinearNormaliz
 from drrm.models.policy.diffusion_policy.common.pytorch_util import dict_apply
 from drrm.models.policy.diffusion_policy.common.module_attr_mixin import ModuleAttrMixin
 
+import yaml
+import json
+from dataclasses import dataclass
+from typing import Optional
+from transformers import PretrainedConfig, PreTrainedModel
 
-class DiffusionUnetImagePolicy(BasePolicy, ModuleAttrMixin):
-    def __init__(self, 
-            shape_meta: dict,
-            noise_scheduler: DDPMScheduler,
-            obs_encoder: MultiImageObsEncoder,
-            horizon, 
-            n_action_steps, 
-            n_obs_steps,
-            num_inference_steps=None,
-            obs_as_global_cond=True,
-            diffusion_step_embed_dim=256,
-            down_dims=(256,512,1024),
-            kernel_size=5,
-            n_groups=8,
-            cond_predict_scale=True,
-            # parameters passed to step
-            **kwargs):
-        super().__init__()
+@dataclass
+class DiffusionUnetImagePolicyConfig(PretrainedConfig):
+    shape_meta: dict
+    noise_scheduler: DDPMScheduler
+    obs_encoder: MultiImageObsEncoder
+    horizon: int
+    n_action_steps: int
+    n_obs_steps: int
+    num_inference_steps: int = None
+    obs_as_global_cond: bool = True
+    diffusion_step_embed_dim: int = 256
+    down_dims: tuple = (256,512,1024)
+    kernel_size: int = 5
+    n_groups: int = 8
+    cond_predict_scale: bool = True
+    out_channels: int = None
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        self.auto_map = {}
+        self.pkg_map = {}
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+    
+    @classmethod
+    def from_customed_yaml(cls, yaml_path: str):
+        with open(yaml_path, 'r') as f:
+            config_dict = yaml.safe_load(f)
+        return cls(**config_dict)
+    
+    @classmethod
+    def from_customed_json(cls, json_path: str):
+        with open(json_path, 'r') as f:
+            config_dict = json.load(f)
+        return cls(**config_dict)
+    
+    @classmethod
+    def from_customed_dict(cls, config_dict):
+        return cls(**config_dict)
+
+
+class DiffusionUnetImagePolicy(BasePolicy, PreTrainedModel, ModuleAttrMixin):
+    config_class = DiffusionUnetImagePolicyConfig
+
+    def __init__(self, config: DiffusionUnetImagePolicyConfig):
+        super().__init__(config)
+        action_shape = config.shape_meta['action']['shape']
+        noise_scheduler = hydra.utils.instantiate(config.noise_scheduler)
+        obs_encoder = hydra.utils.instantiate(config.obs_encoder)
+        horizon = config.horizon
+        n_action_steps = config.n_action_steps
+        n_obs_steps = config.n_obs_steps
+        num_inference_steps = config.num_inference_steps
+        obs_as_global_cond = config.obs_as_global_cond
+        diffusion_step_embed_dim = config.diffusion_step_embed_dim
+        down_dims = config.down_dims
+        kernel_size = config.kernel_size
+        n_groups = config.n_groups
+        cond_predict_scale = config.cond_predict_scale
+        
         # parse shapes
-        action_shape = shape_meta['action']['shape']
         assert len(action_shape) == 1
         action_dim = action_shape[0]
         # get feature dim
-        obs_feature_dim = obs_encoder.output_shape()[0]
+        # obs_feature_dim = obs_encoder.output_shape()[0]
+        obs_feature_dim = config.out_channels
 
         # create diffusion model
         input_dim = action_dim + obs_feature_dim
@@ -69,16 +117,18 @@ class DiffusionUnetImagePolicy(BasePolicy, ModuleAttrMixin):
             action_visible=False
         )
         self.normalizer = LinearNormalizer()
+        # self.normalizer = None
         self.horizon = horizon
         self.obs_feature_dim = obs_feature_dim
         self.action_dim = action_dim
         self.n_action_steps = n_action_steps
         self.n_obs_steps = n_obs_steps
         self.obs_as_global_cond = obs_as_global_cond
-        self.kwargs = kwargs
+        # self.kwargs = kwargs
+        self.kwargs = {} #
 
         if num_inference_steps is None:
-            num_inference_steps = noise_scheduler.config.num_train_timesteps
+            num_inference_steps = noise_scheduler.num_train_timesteps
         self.num_inference_steps = num_inference_steps
     
     # ========= inference  ============

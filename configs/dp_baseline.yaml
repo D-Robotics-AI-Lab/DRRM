@@ -99,7 +99,8 @@ n_action_steps: 8
 n_latency_steps: 0
 obs_as_global_cond: True
 model:
-  _target_: drrm.models.policy.diffusion_policy.diffusion_unet_image_policy.DiffusionUnetImagePolicy
+  target_config: drrm.models.DiffusionUnetImagePolicyConfig
+  target_polciy: drrm.models.DiffusionUnetImagePolicy
   shape_meta: ${shape_meta}
   noise_scheduler:
     _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
@@ -124,6 +125,7 @@ model:
     use_group_norm: True
     share_rgb_model: False
     imagenet_norm: True
+  out_channels: 526
   horizon: ${horizon}
   n_action_steps: ${eval:'${n_action_steps}+${n_latency_steps}'}
   n_obs_steps: ${n_obs_steps}
@@ -147,8 +149,8 @@ ema:
 # ------------------------------- dataset config
 train_dataset:
   _target_: drrm.datasets.drrm_dataset.DRRMDataset
-  root: /root/data/projects/embodiedai/RoboticsManipulation/RoboticsManipulation/data/lerobot/dual_bottles_pick_easy_D435
-  repo_id: D-robotics/dual_bottles_pick_easy_D435
+  root: datasets/lerobot/dual_bottles_pick_hard_D435
+  repo_id: D-robotics/dual_bottles_pick_hard_D435
   horizon: 8
   pad_before: 3
   pad_after: 3
@@ -159,5 +161,5 @@ train_dataset:
   # - image_tokens_pos
   dataset_metadata:
     _target_: lerobot.common.datasets.lerobot_dataset.LeRobotDatasetMetadata
-    root: /root/data/projects/embodiedai/RoboticsManipulation/RoboticsManipulation/data/lerobot/dual_bottles_pick_easy_D435
-    repo_id: D-robotics/dual_bottles_pick_hard_D435
+    root: ${train_dataset.root}
+    repo_id: ${train_dataset.repo_id}
