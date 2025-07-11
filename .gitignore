@@ -1,4 +1,6 @@
 data/
+datasets/
+pretrained/
 outputs/
 weights/
 wandb/
