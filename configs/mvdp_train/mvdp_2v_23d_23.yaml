@@ -15,7 +15,7 @@ shape_meta:
       type: low_dim
       
 mixed_precision: "bf16"
-output_dir: "checkpoints/mvdp_${train_dataset.task}_${train_dataset.demo}_2v_23d"
+output_dir: "checkpoints/mvdp_${train_dataset.task}_${train_dataset.demo}_2v_23d_23"
 
 model:
   obs_encoder:
@@ -32,7 +32,7 @@ model:
       drop_p: 0.0
       ft_heads: []
       ft_layer_idx: []
-      intermediate_layer_idx: [4, 11, 17, 23]
+      intermediate_layer_idx: [23]
       seq_as_view: True
       only_first_view: True
       injector_config:

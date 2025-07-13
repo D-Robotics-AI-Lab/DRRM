@@ -62,7 +62,7 @@ def save_policy_config(polciy, save_path):
     if 'emvis_config' in polciy.config.obs_encoder:
         emvis_config = polciy.config.obs_encoder['emvis_config']
         emvis_config['load_vggt_pretrain'] = False
-        emvis_config['load_vggt_heads'] = False
+        # emvis_config['load_vggt_heads'] = False
         emvis_config['visualize'] = False
     polciy.config.auto_map = {
         "AutoConfig": f"{os.path.splitext(code_name)[0]}.{PolicyConfigClass.__name__}",
@@ -354,7 +354,7 @@ def train(args, logger):
         model_to_save = accelerator.unwrap_model(policy_model)
         save_policy_config(model_to_save, args.output_dir)
         model_to_save.save_pretrained(args.output_dir, max_shard_size="10GB")
-        
+
         ema_save_path = os.path.join(args.output_dir, f"ema")
         accelerator.save_model(ema_policy_model, ema_save_path)
         

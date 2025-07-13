@@ -15,7 +15,7 @@ shape_meta:
       type: low_dim
       
 mixed_precision: "bf16"
-output_dir: "checkpoints/mvdp_${train_dataset.task}_${train_dataset.demo}_1v_23d_${model.obs_encoder.emvis_config.intermediate_layer_idx}"
+output_dir: "checkpoints/mvdp_${train_dataset.task}_${train_dataset.demo}_1v_23d"
 
 model:
   obs_encoder:

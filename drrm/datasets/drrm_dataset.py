@@ -84,17 +84,19 @@ class DRRMDataset(LeRobotDataset):
     DEFAULT_KEYS = {'timestamp', 'frame_indx', 'episode_index', 'index', 'task_index', 'frame_index'}
     
     def __init__(self, 
-                 repo_id: str,
-                 root:  str | Path | None = None,
-                 dataset_metadata: LeRobotDatasetMetadata | None = None,
-                 episodes: list[int] | None = None,
-                 horizon: int = 8,
-                 pad_before: int = 0,
-                 pad_after: int = 0,
-                 npy_feature_keys: list[str] | None = None,
-                 seed: int = 0,
-                 val_ratio: float = 0.0,
-                 max_train_episodes=None):
+            repo_id: str,
+            root:  str | Path | None = None,
+            dataset_metadata: LeRobotDatasetMetadata | None = None,
+            episodes: list[int] | None = None,
+            horizon: int = 8,
+            pad_before: int = 0,
+            pad_after: int = 0,
+            npy_feature_keys: list[str] | None = None,
+            seed: int = 0,
+            val_ratio: float = 0.0,
+            max_train_episodes=None,
+            **kwargs
+        ):
         
         # Store all parameters for easy access
         self.dataset_meta = dataset_metadata
