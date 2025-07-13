@@ -13,6 +13,7 @@ import importlib
 import argparse
 from omegaconf import OmegaConf
 from safetensors.torch import load_model
+from transformers import AutoConfig, AutoModel
 import time
 import multiprocessing as mp
 from multiprocessing import Manager, Process, Queue
@@ -57,6 +58,23 @@ def log_result(file_path, ind: int, res: dict, lock):
         lines[ind] = string + '\n'
         with open(file_path, 'w', newline='') as f:
             f.writelines(lines)
+
+def load_policy(ckp_path, use_ckp_code = True):
+    if use_ckp_code:
+        policy_model = AutoModel.from_pretrained(ckp_path, trust_remote_code=True)
+        # load state dict of normalizer
+        load_model(policy_model, os.path.join(ckp_path, "model.safetensors"), strict=False)
+    else:
+        # get package path from checkpoint config
+        config = AutoConfig.from_pretrained(ckp_path, trust_remote_code=True) 
+        ConfigClass = hydra.utils.get_class(config.pkg_map['AutoConfig'])
+        PolicyClass = hydra.utils.get_class(config.pkg_map['AutoModel'])
+        # reload config by packege class
+        config = ConfigClass.from_pretrained(ckp_path)
+        policy_model = PolicyClass(config)
+        # load state dict of normalizer
+        load_model(policy_model, os.path.join(ckp_path, "model.safetensors"), strict=False)
+    return policy_model
 
 class DPRunner:
     def __init__(self,
@@ -165,9 +183,10 @@ class DP:
             self.dtype = torch.float16
         else:
             self.dtype = torch.float32
-        
-        self.policy = hydra.utils.instantiate(model_cfg.model)
-        load_model(self.policy, os.path.join(cfg.checkpoint_dir, "model.safetensors"), strict=False)    # TODO: strict=False
+        # TODO change load mode
+        # self.policy = hydra.utils.instantiate(model_cfg.model)
+        # load_model(self.policy, os.path.join(cfg.checkpoint_dir, "model.safetensors"), strict=False)    # TODO: strict=False
+        self.policy = load_policy(cfg.checkpoint_dir, use_ckp_code=False)
         self.policy.eval()
         self.policy.to('cuda')
 
