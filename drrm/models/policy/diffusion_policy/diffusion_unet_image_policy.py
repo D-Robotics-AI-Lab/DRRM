@@ -8,6 +8,7 @@ from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 
 from drrm.models.base_policy import BasePolicy
 from drrm.models.policy.diffusion_policy.multi_image_obs_encoder import MultiImageObsEncoder
+from drrm.models.policy.diffusion_policy.multi_image_obs_encoder_emvis_exp1 import MultiImageObsEncoderEmvisExp1
 from drrm.models.policy.diffusion_policy.diffusion.conditional_unet1d import ConditionalUnet1D
 from drrm.models.policy.diffusion_policy.diffusion.mask_generator import LowdimMaskGenerator
 from drrm.models.policy.diffusion_policy.common.normalizer import LinearNormalizer

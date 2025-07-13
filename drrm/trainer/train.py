@@ -166,7 +166,7 @@ def train(args, logger):
                 model_to_save = model.module if hasattr(model, "module") else model  # type: ignore
                 if isinstance(model_to_save, type(accelerator.unwrap_model(policy_model))):
                     save_policy_config(model_to_save, output_dir)
-                    model_to_save.save_pretrained(output_dir)
+                    model_to_save.save_pretrained(output_dir, max_shard_size="10GB")
 
     accelerator.register_save_state_pre_hook(save_model_hook)
 
@@ -321,7 +321,7 @@ def train(args, logger):
 
             if global_step % args.checkpointing_period == 0:
                 save_path = os.path.join(args.output_dir, f"checkpoint-{global_step}")
-                accelerator.save_state(save_path)
+                accelerator.save_state(save_path, False)
                 ema_save_path = os.path.join(save_path, f"ema")
                 accelerator.save_model(ema_policy_model, ema_save_path)
                 logger.info(f"Saved state to {save_path}")
@@ -350,7 +350,11 @@ def train(args, logger):
     # Create the pipeline using using the trained modules and save it.
     accelerator.wait_for_everyone()
     if accelerator.is_main_process:
-        accelerator.unwrap_model(policy_model).save_pretrained(args.output_dir)
+        # accelerator.unwrap_model(policy_model).save_pretrained(args.output_dir)
+        model_to_save = accelerator.unwrap_model(policy_model)
+        save_policy_config(model_to_save, args.output_dir)
+        model_to_save.save_pretrained(args.output_dir, max_shard_size="10GB")
+        
         ema_save_path = os.path.join(args.output_dir, f"ema")
         accelerator.save_model(ema_policy_model, ema_save_path)
         

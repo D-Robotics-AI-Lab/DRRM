@@ -8,7 +8,7 @@ from accelerate.logging import get_logger
 OmegaConf.register_new_resolver("eval", eval, replace=True)
 
 
-@hydra.main(version_base=None,config_path=str(pathlib.Path(__file__).parent.joinpath('configs')))
+@hydra.main(version_base=None)
 def main(cfg: OmegaConf):
     OmegaConf.resolve(cfg)
 

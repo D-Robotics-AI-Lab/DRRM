@@ -1,10 +1,10 @@
 compute_environment: LOCAL_MACHINE
 distributed_type: MULTI_GPU
 downcast_bf16: 'no'
-gpu_ids: 0,1,2,3
+gpu_ids: 0,1,2,3,4,5,6,7
 # mixed_precision: 'no'
 num_machines: 1
-num_processes: 4
+num_processes: 8
 rdzv_backend: static
 same_network: false
 tpu_env: []

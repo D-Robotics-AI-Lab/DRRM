@@ -13,13 +13,14 @@ from drrm.emvis import EmVisRM
 
 
 class MultiImageObsEncoderEmvisExp1(ModuleAttrMixin):
-    def __init__(self,
+    def __init__(
+        self,
         emvis_config: dict = None,
         out_channels: int = None,
         rgb_key: list[str] = ['head_cam'],
         state_key: str = 'agent_pos',
         **kwargs
-        ):
+    ):
         super().__init__()
         self.state_key = state_key
         self.out_channels = out_channels
@@ -68,8 +69,8 @@ class MultiImageObsEncoderEmvisExp1(ModuleAttrMixin):
             rgb_image = torch.cat([obs_dict[key].unsqueeze(1) for key in self.rgb_key], dim=1) # BS, V, C, H, W 
             # 重塑图像形状并归一化到0-1范围
             rgb_image = (rgb_image + 1) / 2  # 从[-1,1]归一化到[0,1]
-            emvis_feat = self.scene_encoder(rgb_image, batch_size=batch_size)   # BS, V, C, H, W -> BS, V, 1, dim
-            emvis_feat = emvis_feat.reshape(BS, -1)      # BS, V*dim
+            emvis_feat = self.scene_encoder(rgb_image, batch_size=batch_size) # BS, V, C, H, W -> BS, V, 1, dim
+            emvis_feat = emvis_feat.reshape(BS, -1) # BS, V*dim
             features.append(emvis_feat)
         
         # process lowdim input
