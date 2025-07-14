@@ -158,7 +158,7 @@ class DPRunner:
             action_dict = policy.predict_action(obs_dict_input)
 
         # device_transfer
-        np_action_dict = dict_apply(action_dict, lambda x: x.detach().to('cpu').numpy())
+        np_action_dict = dict_apply(action_dict, lambda x: x.detach().to('cpu').float().numpy())
         action = np_action_dict['action'].squeeze(0)
         return action
 
