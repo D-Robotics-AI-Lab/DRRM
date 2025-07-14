@@ -4,6 +4,7 @@ pretrained/
 outputs/
 weights/
 wandb/
+checkpoints
 checkpoints/
 third_party/
 .vscode/
