@@ -63,7 +63,7 @@ def save_policy_config(polciy, save_path):
         emvis_config = polciy.config.obs_encoder['emvis_config']
         emvis_config['load_vggt_pretrain'] = False
         # emvis_config['load_vggt_heads'] = False
-        emvis_config['visualize'] = True
+        emvis_config['visualize'] = False
     polciy.config.auto_map = {
         "AutoConfig": f"{os.path.splitext(code_name)[0]}.{PolicyConfigClass.__name__}",
         "AutoModel": f"{os.path.splitext(code_name)[0]}.{PolicyClass.__name__}"
