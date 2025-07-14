@@ -33,7 +33,7 @@ model:
       ft_heads: []
       ft_layer_idx: []
       intermediate_layer_idx: [23]
-      seq_as_view: True
+      seq_as_view: False
       only_first_view: True
       injector_config:
         fuse_2d: True
