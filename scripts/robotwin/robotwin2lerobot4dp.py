@@ -11,7 +11,7 @@ import shutil
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 
 # Constants
-TASK_STR = "dual bottles pick easy"
+# TASK_STR = "dual bottles pick easy"
 CAMERA_SHAPE = (240, 320, 3)
 # Feature schema definition for the LeRobot dataset
 FEATURES = {
@@ -26,7 +26,7 @@ FEATURES = {
 def _extract_frame(data: Dict[str, Any]) -> Dict[str, Any]:
     """Convert raw pickle dictionary to the format expected by LeRobot."""
     return {
-        "task": TASK_STR,
+        # "task": TASK_STR,
         "agent_pos": data["joint_action"].astype(np.float32),
         "action": data["joint_action"].astype(np.float32),
         "endpose": data["endpose"].astype(np.float32),
@@ -45,7 +45,7 @@ def _process_episode(dataset: LeRobotDataset, episode_dir: Path) -> None:
             raw = pickle.load(f)
 
         frame = _extract_frame(raw)
-        dataset.add_frame(frame)
+        dataset.add_frame(frame, task=TASK_STR)
 
     # Persist episode to disk so that an unexpected crash does not lose work.
     dataset.save_episode()
@@ -78,10 +78,13 @@ if __name__ == "__main__":
     parser.add_argument("--src_dir", type=str, required=True, help="Source directory containing episode folders, robotwin format")
     parser.add_argument("--dst_dir", type=str, required=True, help="Destination directory for the dataset")
     parser.add_argument("--repo", type=str, required=True, help="HuggingFace repository ID")
+    parser.add_argument("--task", type=str, required=True, help="task name")
     parser.add_argument("--fps", type=int, default=40, help="Frames per second for the dataset")
     parser.add_argument("--push", type=bool, default=False, help="Whether to push the dataset to the HuggingFace Hub")
     args = parser.parse_args()
 
+    global TASK_STR
+    TASK_STR = ' '.join(args.task.split('_'))
     if os.path.exists(args.dst_dir):
         shutil.rmtree(args.dst_dir)
 
