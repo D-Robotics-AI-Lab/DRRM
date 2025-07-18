@@ -1,5 +1,5 @@
 config=mvdp_1v_23d
-task=dual_bottles_pick_hard
+task=container_place
 demo=100
 path="${config/_*/}_${task}_${demo}_${config#*_}"
 
