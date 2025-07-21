@@ -3,7 +3,7 @@ task=dual_bottles_pick_hard
 demo=100
 path="${config/_*/}_${task}_${demo}_${config#*_}_sav"
 
-accelerate launch --num_processes 8\
+accelerate launch\
     --config_file configs/accelerate_config.yaml \
     main.py \
     --config-path=configs/mvdp_train \

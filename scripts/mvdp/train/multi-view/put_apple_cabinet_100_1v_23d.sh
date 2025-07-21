@@ -3,7 +3,7 @@ task=put_apple_cabinet
 demo=100
 path="${config/_*/}_${task}_${demo}_${config#*_}"
 
-accelerate launch --num_processes 8\
+accelerate launch\
     --config_file configs/accelerate_config.yaml \
     main.py \
     --config-path=configs/mvdp_train \
