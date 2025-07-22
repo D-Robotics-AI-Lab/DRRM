@@ -1,5 +1,5 @@
-config=mvdp_2v_23d_23
-task=dual_bottles_pick_hard
+config=mvdp_1v_3d_23
+task=bottle_adjust
 demo=100
 path="${config/_*/}_${task}_${demo}_${config#*_}"
 
