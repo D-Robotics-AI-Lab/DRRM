@@ -17,7 +17,7 @@ from drrm.models.policy.diffusion_policy.common.module_attr_mixin import ModuleA
 from drrm.models.policy.diffusion_policy.diffusion.transformer_for_diffusion import TransformerForDiffusion
 from drrm.models.policy.diffusion_policy.diffusion.mask_generator import LowdimMaskGenerator
 from drrm.models.policy.diffusion_policy.multi_image_obs_encoder import MultiImageObsEncoder
-from diffusion_policy.common.pytorch_util import dict_apply
+from drrm.models.policy.diffusion_policy.common.pytorch_util import dict_apply
 
 import yaml
 import json
