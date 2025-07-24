@@ -11,7 +11,7 @@ mixed_precision: "bf16" # "no", "fp16", "bf16"
 # Use `"all"` to report to all integrations.
 report_to: "wandb"
 # The output directory where the model predictions and checkpoints will be written.
-output_dir: checkpoints/dp_baseline
+output_dir: checkpoints/dp_${train_dataset.task}_${train_dataset.demo}_baseline
 # [TensorBoard](https://www.tensorflow.org/tensorboard) log directory. Will default to *output_dir/runs/**CURRENT_DATETIME_HOSTNAME***.
 logging_dir: logs
 # Max number of checkpoints to store. Passed as `total_limit` to the `Accelerator` `ProjectConfiguration`.
