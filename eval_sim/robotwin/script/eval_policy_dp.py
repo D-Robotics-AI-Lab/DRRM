@@ -223,9 +223,13 @@ def test_policy_worker(task_name, args_copy, seed, need, lock, test_num, log_pat
             seed.value += 1
         args_copy['render_freq'] = 0
         if expert_check:
-            Demo_class_copy.setup_demo(now_ep_num = test_num-need.value, seed = now_seed, is_test = True, ** args_copy)
-            Demo_class_copy.play_once()
-            Demo_class_copy.close()
+            try:
+                Demo_class_copy.setup_demo(now_ep_num = test_num-need.value, seed = now_seed, is_test = True, ** args_copy)
+                Demo_class_copy.play_once()
+                Demo_class_copy.close()
+            except Exception as e:
+                Demo_class_copy.close()
+                continue
         if (not expert_check) or (Demo_class_copy.plan_success and Demo_class_copy.check_success()):
             with lock: 	# 再次加锁更新共享状态
                 if need.value > 0:
@@ -298,6 +302,8 @@ def test_policy(task_name, args, st_seed, test_num=20, num_process=1):
         # while not return_queue.empty():
         for i in range(num_process):
             results.append(return_queue.get())
+            ind = list(results[-1].keys())[0]
+            print(f"Get result {i+1}: pid:{results[-1][ind]['pid']} cuda:{results[-1][ind]['device']}")
 
     results = {k: v for d in results for k, v in d.items()}
     success_num = np.array([v['success'] for v in results.values()]).sum()
