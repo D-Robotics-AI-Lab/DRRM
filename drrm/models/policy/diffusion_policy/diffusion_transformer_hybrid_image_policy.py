@@ -6,11 +6,6 @@ import torch.nn.functional as F
 from einops import rearrange, reduce
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 
-# 设置当前的文件的parent.parent 为工作路径
-import sys
-from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent))
-
 from drrm.models.policy.diffusion_policy.common.normalizer  import LinearNormalizer
 from drrm.models.base_policy import BasePolicy
 from drrm.models.policy.diffusion_policy.common.module_attr_mixin import ModuleAttrMixin
@@ -197,7 +192,9 @@ class DiffusionTransformerHybridImagePolicy(BasePolicy, PreTrainedModel, ModuleA
         """
         assert 'past_action' not in obs_dict # not implemented yet
         # normalize input
-        nobs = self.normalizer.normalize(obs_dict)
+        filtered_obs_dict = {key: value for key, value in obs_dict.items() 
+                if key in self.normalizer.params_dict}
+        nobs = self.normalizer.normalize(filtered_obs_dict)
         value = next(iter(nobs.values()))
         B, To = value.shape[:2]
         T = self.horizon
