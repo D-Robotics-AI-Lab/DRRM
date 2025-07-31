@@ -27,14 +27,14 @@ parent_directory = os.path.dirname(current_file_path)
 
 def format_result(key: int, res: dict):
     s = f"【{key:03d}】"
-    for k in  ['seed', 'success', 'frames', 'time', 'fps', 'start', 'end', 'count', 'limit', 'pid', 'device']:
+    for k in  ['seed', 'success', 'frames', 'time', 'fps', 'infer_cnt', 'infer_time', 'ips', 'start', 'end', 'count', 'limit', 'pid', 'device']:
         if not k in res: continue
-        elif k == 'time': 
+        elif k == 'time' or k == 'infer_time': 
             s += f"{k}: {int(res[k]):03d} s, "
         elif k in ['start', 'end']:
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(res[k]))
             s += f"{k}: {timestamp}, "
-        elif k == "fps":
+        elif k == "fps" or k == "ips":
             s += f"{k}: {res[k]:03.2f}, "
         elif k == 'success':
             if res[k]:
@@ -248,7 +248,7 @@ def test_policy_worker(task_name, args_copy, seed, need, lock, test_num, log_pat
             log_result(log_path, ind, result, log_lock)
             Demo_class_copy.test_num = now_id
             Demo_class_copy.setup_demo(now_ep_num = now_id, seed = now_seed, is_test = True, ** args_copy)
-            success, frames, count, limit = Demo_class_copy.apply_dp(dp_copy, args_copy)
+            success, frames, count, limit, infer = Demo_class_copy.apply_dp(dp_copy, args_copy)
             Demo_class_copy.close()
             if Demo_class_copy.render_freq:
                 Demo_class_copy.viewer.close()
@@ -256,8 +256,11 @@ def test_policy_worker(task_name, args_copy, seed, need, lock, test_num, log_pat
             t1 = time.time()
             delta = t1 - t0
             result.update(
-                success = success, end = t1, time = delta, frames = frames,
-                count = count, limit = limit, fps = frames/delta, device = gpu_id, pid = os.getpid()
+                success = success, end = t1, time = delta, 
+                frames = frames, fps = frames/delta, 
+                count = count, limit = limit, 
+                infer_cnt = infer[1], infer_time = infer[0], ips = infer[0]/infer[1],
+                device = gpu_id, pid = os.getpid()
             )
             log_result(log_path, ind, result, log_lock)
 

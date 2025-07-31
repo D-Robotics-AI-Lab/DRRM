@@ -1253,6 +1253,7 @@ class Base_task(gym.Env):
         self.test_num += 1
         self.test_num = f"{self.test_num}_{self.seed}"
         frames = 0
+        inf_time = [0,0]
 
         eval_video_log = args['eval_video_log']
         # 修改视频尺寸为两个摄像头水平拼接的宽度
@@ -1303,7 +1304,10 @@ class Base_task(gym.Env):
             obs['agent_pos'] = observation['joint_action']
             model.update_obs(obs)
             
+            t0 = time.time()
             actions = model.get_action()
+            inf_time[0] += time.time() - t0
+            inf_time[1] += 1
             obs = model.get_last_obs()
             
             left_arm_actions , left_gripper , left_current_qpos, left_path = [], [], [], []
@@ -1441,7 +1445,7 @@ class Base_task(gym.Env):
                     ffmpeg.wait()
                     del ffmpeg
                     shutil.move(f'{save_dir}/{self.test_num}.mp4', f'{save_dir}/{self.test_num}_success.mp4')
-                return True, frames, cnt, self.step_lim
+                return True, frames, cnt, self.step_lim, inf_time
             
             if self.actor_pose == False:
                 break
@@ -1454,7 +1458,7 @@ class Base_task(gym.Env):
             ffmpeg.wait()
             del ffmpeg
             shutil.move(f'{save_dir}/{self.test_num}.mp4', f'{save_dir}/{self.test_num}_fail.mp4')
-        return False, frames, cnt, self.step_lim
+        return False, frames, cnt, self.step_lim, inf_time
 
 
     def apply_dp3(self, model, args):
@@ -1462,6 +1466,7 @@ class Base_task(gym.Env):
         self.test_num += 1
         self.test_num = f"{self.test_num}_{self.seed}"
         frames = 0
+        inf_time = [0,0]
 
         eval_video_log = args['eval_video_log']
         video_size = str(args['head_camera_w']) + 'x' + str(args['head_camera_h'])
@@ -1509,7 +1514,10 @@ class Base_task(gym.Env):
                 obs['agent_pos'] = observation['joint_action']
                 assert obs['agent_pos'].shape[0] == 7, 'agent_pose shape, error'
             
+            t0 = time.time()
             actions = model.get_action(obs)
+            inf_time[0] += time.time() - t0
+            inf_time[1] += 1
             left_arm_actions , left_gripper , left_current_qpos, left_path = [], [], [], []
             right_arm_actions , right_gripper , right_current_qpos, right_path = [], [], [], []
             if self.dual_arm:
@@ -1645,7 +1653,7 @@ class Base_task(gym.Env):
                     ffmpeg.wait()
                     del ffmpeg
                     shutil.move(f'{save_dir}/{self.test_num}.mp4', f'{save_dir}/{self.test_num}_success.mp4')
-                return True, frames, cnt, self.step_lim
+                return True, frames, cnt, self.step_lim, inf_time
             
             if self.actor_pose == False:
                 break
@@ -1658,7 +1666,7 @@ class Base_task(gym.Env):
             del ffmpeg
             shutil.move(f'{save_dir}/{self.test_num}.mp4', f'{save_dir}/{self.test_num}_fail.mp4')
 
-        return False, frames, cnt, self.step_lim
+        return False, frames, cnt, self.step_lim, inf_time
 
     
     def get_grasp_pose_w_labeled_direction(self, actor, actor_data = DEFAULT_ACTOR_DATA, grasp_matrix = np.eye(4), pre_dis = 0, id = 0):
