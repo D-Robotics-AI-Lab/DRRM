@@ -88,6 +88,9 @@ class DRRMDataset(LeRobotDataset):
             root:  str | Path | None = None,
             dataset_metadata: LeRobotDatasetMetadata | None = None,
             episodes: list[int] | None = None,
+            task_list: list[int] | None = None,
+            task_index_list: list[int] | None = None,
+            black_index: list[int] | None = None,
             horizon: int = 8,
             pad_before: int = 0,
             pad_after: int = 0,
@@ -110,6 +113,9 @@ class DRRMDataset(LeRobotDataset):
         self.max_train_episodes = max_train_episodes
         self.npy_feature_keys = npy_feature_keys or []
         self.val_mask = None
+        self.task_list = task_list
+        self.task_index_list = task_index_list
+        self.black_index = black_index
         
         # Setup delta timestamps
         self.delta_timestamps = self._create_delta_timestamps()
@@ -141,12 +147,33 @@ class DRRMDataset(LeRobotDataset):
 
     def _setup_train_val_split(self):
         """Setup train/validation split and return train episodes"""
-        n_episodes = self.dataset_meta.total_episodes
-        self.val_mask = get_val_mask(n_episodes, self.val_ratio, self.seed)
-        train_mask = ~self.val_mask
-        train_mask = downsample_mask(train_mask, self.max_train_episodes, self.seed)
+        tn_episodes = self.dataset_meta.total_episodes
+        available_mask = np.zeros(tn_episodes, dtype=bool)
+        self.val_mask = np.zeros(tn_episodes, dtype=bool)
+        self.train_mask = np.zeros(tn_episodes, dtype=bool)
+        # task list -> task index list
+        if self.task_index_list is not None:
+            if self.task_list is None:
+                self.task_list = []
+            self.task_list += [self.dataset_meta.tasks[ind] for ind in self.task_index_list]
+        if self.task_list is None:
+            self.task_list = list(self.dataset_meta.tasks.values())
+        # task index list -> available_mask
+        available_mask[[
+            bool(set(ep['tasks']) & set(self.task_list))
+            for ep in self.dataset_meta.episodes.values()
+        ]] = True
+        if self.black_index is not None:
+            available_mask[self.black_index] = False
+
         
-        return np.nonzero(train_mask)[0]
+        n_episodes = available_mask.sum()
+        val_mask = get_val_mask(n_episodes, self.val_ratio, self.seed)
+        self.val_mask[available_mask] = val_mask
+        train_mask = ~val_mask
+        train_mask = downsample_mask(train_mask, self.max_train_episodes, self.seed)
+        self.train_mask[available_mask] = train_mask
+        return np.nonzero(self.train_mask)[0]
 
     def get_validation_dataset(self):
         """Create validation dataset if validation split exists"""
