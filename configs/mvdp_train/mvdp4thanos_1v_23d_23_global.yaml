@@ -49,7 +49,7 @@ model:
       mv_fuser_config: {}
 
 train_dataset:
-  task: 'Place the blue square object into the bowl'
+  task: place_green
   demo: None
   task_list: ["${train_dataset.task}"]
   root: datasets/thanos/container_pick_and_place
