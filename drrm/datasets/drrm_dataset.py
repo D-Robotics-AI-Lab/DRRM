@@ -159,11 +159,14 @@ class DRRMDataset(LeRobotDataset):
         if self.task_list is None:
             self.task_list = list(self.dataset_meta.tasks.values())
         # task index list -> available_mask
-        available_mask[[
-            # bool(set(ep['task']) & set(self.task_list))
-            ep['task'] in set(self.task_list)
-            for ep in self.dataset_meta.episodes.values()
-        ]] = True
+        if 'task' in self.dataset_meta.episodes[0]:
+            available_mask[[
+                # bool(set(ep['task']) & set(self.task_list))
+                ep['task'] in set(self.task_list)
+                for ep in self.dataset_meta.episodes.values()
+            ]] = True
+        else:
+            available_mask[:] = True
         if self.black_index is not None:
             available_mask[self.black_index] = False
 
