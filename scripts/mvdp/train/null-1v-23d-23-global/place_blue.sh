@@ -1,7 +1,7 @@
 config=mvdp4thanos_1v_23d_23_global
 task=place_blue
-demo=None
-path="${config/_*/}_${task}_${demo}_${config#*_}"
+demo=null
+path="${config/_*/}_${task}_None_${config#*_}"
 
 accelerate launch\
     --config_file configs/accelerate_config.yaml \
