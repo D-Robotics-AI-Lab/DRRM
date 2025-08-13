@@ -1,5 +1,7 @@
+import json
 from typing import Dict
 import math
+import hydra
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,50 +9,104 @@ from einops import rearrange, reduce
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 from termcolor import cprint
 import copy
-import time
-import pdb
-# import pytorch3d.ops as torch3d_ops
-
-# 设置当前的文件的parent.parent 为工作路径
-import sys
-from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent))
-# print一下当前的工作路径
-import os
-print(os.getcwd())
-from diffusion_policy_3d.model.diffusion.conditional_unet1d import ConditionalUnet1D
-from diffusion_policy_3d.model.diffusion.mask_generator import LowdimMaskGenerator
-from diffusion_policy_3d.common.pytorch_util import dict_apply
-from diffusion_policy_3d.common.model_util import print_params
-from diffusion_policy_3d.model.common.module_attr_mixin import ModuleAttrMixin
-from diffusion_policy_3d.model.vision.pointnet_extractor import DP3Encoder
+from dataclasses import dataclass
+from transformers import PretrainedConfig, PreTrainedModel
+import yaml
+# import sys
+# from pathlib import Path
+# sys.path.append(str(Path(__file__).parent.parent))
+from drrm.models.policy.diffusion_policy_3d.model.diffusion.conditional_unet1d import ConditionalUnet1D
+from drrm.models.policy.diffusion_policy_3d.model.diffusion.mask_generator import LowdimMaskGenerator
+from drrm.models.policy.diffusion_policy_3d.common.pytorch_util import dict_apply
+from drrm.models.policy.diffusion_policy_3d.common.model_util import print_params
+from drrm.models.policy.diffusion_policy_3d.model.common.module_attr_mixin import ModuleAttrMixin
+from drrm.models.policy.diffusion_policy_3d.model.vision.pointnet_extractor import DP3Encoder
 from drrm.models.base_policy import BasePolicy
 from drrm.common.normalizer import LinearNormalizer
-class DP3(BasePolicy, ModuleAttrMixin):
-    def __init__(self, 
-            shape_meta: dict,
-            noise_scheduler: DDPMScheduler,
-            horizon, 
-            n_action_steps, 
-            n_obs_steps,
-            num_inference_steps=None,
-            obs_as_global_cond=True,
-            diffusion_step_embed_dim=256,
-            down_dims=(256,512,1024),
-            kernel_size=5,
-            n_groups=8,
-            condition_type="film",
-            use_down_condition=True,
-            use_mid_condition=True,
-            use_up_condition=True,
-            encoder_output_dim=256,
-            crop_shape=None,
-            use_pc_color=False,
-            pointnet_type="pointnet",
-            pointcloud_encoder_cfg=None,
-            # parameters passed to step
-            **kwargs):
-        super().__init__()
+
+
+@dataclass
+class DP3Config(PretrainedConfig):
+    shape_meta: dict
+    noise_scheduler: DDPMScheduler
+    horizon: int
+    n_action_steps: int
+    n_obs_steps: int
+    num_inference_steps: int =None
+    obs_as_global_cond=True
+    diffusion_step_embed_dim=256
+    down_dims=(256,512,1024)
+    kernel_size=5,
+    n_groups=8,
+    condition_type="film",
+    use_down_condition=True,
+    use_mid_condition=True,
+    use_up_condition=True,
+    encoder_output_dim=256,
+    crop_shape=None,
+    use_pc_color=False,
+    pointnet_type="pointnet",
+    pointcloud_encoder_cfg=None
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.auto_map = {}
+        self.pkg_map = {}
+        self.addition_keys = []
+        for key, value in kwargs.items():
+            if not hasattr(self, key):
+                self.addition_keys.append(key)
+            setattr(self, key, value)
+    
+    @classmethod
+    def from_customed_yaml(cls, yaml_path: str):
+        with open(yaml_path, 'r') as f:
+            config_dict = yaml.safe_load(f)
+        return cls(**config_dict)
+    
+    @classmethod
+    def from_customed_json(cls, json_path: str):
+        with open(json_path, 'r') as f:
+            config_dict = json.load(f)
+        return cls(**config_dict)
+    
+    @classmethod
+    def from_customed_dict(cls, config_dict):
+        return cls(**config_dict)
+    
+    def get_kwargs(self):
+        return {
+            key: self.__dict__[key]
+            for key in self.addition_keys
+        }
+    
+    
+class DP3(BasePolicy, PreTrainedModel, ModuleAttrMixin):
+    config_class = DP3Config
+
+    def __init__(self, config: DP3Config):
+        super().__init__(config)
+        shape_meta = hydra.utils.instantiate(config.shape_meta)
+        noise_scheduler = hydra.utils.instantiate(config.noise_scheduler)
+        horizon = config.horizon
+        n_action_steps = config.n_action_steps
+        n_obs_steps = config.n_obs_steps
+        num_inference_steps = config.num_inference_steps
+        obs_as_global_cond = config.obs_as_global_cond
+        diffusion_step_embed_dim = config.diffusion_step_embed_dim
+        down_dims = hydra.utils.instantiate(config.down_dims)
+        kernel_size = config.kernel_size
+        n_groups = config.n_groups
+        condition_type = config.condition_type
+        use_down_condition = config.use_down_condition
+        use_mid_condition = config.use_mid_condition
+        use_up_condition = config.use_up_condition
+        encoder_output_dim = config.encoder_output_dim
+        crop_shape = hydra.utils.instantiate(config.crop_shape)
+        use_pc_color = config.use_pc_color
+        pointnet_type = config.pointnet_type
+        pointcloud_encoder_cfg = hydra.utils.instantiate(config.pointcloud_encoder_cfg)
+        kwargs = config.get_kwargs()
 
         self.condition_type = condition_type
 

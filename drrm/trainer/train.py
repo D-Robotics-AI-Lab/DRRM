@@ -59,7 +59,7 @@ def save_policy_config(polciy, save_path):
     PolicyConfigClass = polciy.config_class
     code_path = inspect.getfile(PolicyClass)
     code_name = os.path.basename(code_path)
-    if 'emvis_config' in polciy.config.obs_encoder:
+    if hasattr(polciy.config, 'obs_encoder') and 'emvis_config' in polciy.config.obs_encoder:
         emvis_config = polciy.config.obs_encoder['emvis_config']
         emvis_config['load_vggt_pretrain'] = False
         # emvis_config['load_vggt_heads'] = False

@@ -1,3 +1,4 @@
 from .policy.diffusion_policy.diffusion_unet_image_policy import DiffusionUnetImagePolicy, DiffusionUnetImagePolicyConfig
 from .policy.diffusion_policy.diffusion_transformer_hybrid_image_policy import DiffusionTransformerHybridImagePolicy, DiffusionTransformerHybridImagePolicyConfig
 from .policy.diffusion_policy.multi_image_obs_encoder_emvis_exp1 import MultiImageObsEncoderEmvisExp1
+from .policy.diffusion_policy_3d.dp3 import DP3, DP3Config
