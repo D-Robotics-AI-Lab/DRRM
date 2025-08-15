@@ -166,7 +166,19 @@ def train(args, logger):
                 model_to_save = model.module if hasattr(model, "module") else model  # type: ignore
                 if isinstance(model_to_save, type(accelerator.unwrap_model(policy_model))):
                     save_policy_config(model_to_save, output_dir)
-                    model_to_save.save_pretrained(output_dir, max_shard_size="10GB")
+                    state_dict = accelerator.get_state_dict(model_to_save)
+                    encoder_keys = [key for key in state_dict.keys() if 'vggt_encoder' in key]
+                    def is_shared(key):
+                        if not 'vggt_heads' in key:
+                            return False
+                        else:
+                            return 'vggt_encoder'.join(key.split('vggt_heads')) in encoder_keys
+                    filtered_state_dict = { 
+                        k:v
+                        for k,v in state_dict.items()
+                        if not is_shared(k)
+                    }
+                    model_to_save.save_pretrained(output_dir, state_dict=filtered_state_dict, max_shard_size="10GB")
 
     accelerator.register_save_state_pre_hook(save_model_hook)
 
