@@ -52,7 +52,7 @@ def log_sample_res(policy_model, args, dataloader, logger):
 def get_normalizer():
     raise NotImplementedError
 
-def save_policy_config(polciy, save_path):
+def save_policy_custom(polciy, save_path):
     import inspect
     import shutil
     PolicyClass = polciy.__class__
@@ -69,6 +69,20 @@ def save_policy_config(polciy, save_path):
         "AutoModel": f"{os.path.splitext(code_name)[0]}.{PolicyClass.__name__}"
     }
     shutil.copy(code_path, os.path.join(save_path, code_name))
+
+    state_dict = polciy.state_dict()
+    encoder_keys = [key for key in state_dict.keys() if 'vggt_encoder' in key]
+    def is_shared(key):
+        if not 'vggt_heads' in key:
+            return False
+        else:
+            return 'vggt_encoder'.join(key.split('vggt_heads')) in encoder_keys
+    filtered_state_dict = { 
+        k:v
+        for k,v in state_dict.items()
+        if not is_shared(k)
+    }
+    polciy.save_pretrained(save_path, state_dict=filtered_state_dict, max_shard_size="10GB")
     
 def load_policy(ckp_path, use_ckp_code = True):
     if use_ckp_code:
@@ -165,20 +179,7 @@ def train(args, logger):
             for model in models:
                 model_to_save = model.module if hasattr(model, "module") else model  # type: ignore
                 if isinstance(model_to_save, type(accelerator.unwrap_model(policy_model))):
-                    save_policy_config(model_to_save, output_dir)
-                    state_dict = accelerator.get_state_dict(model_to_save)
-                    encoder_keys = [key for key in state_dict.keys() if 'vggt_encoder' in key]
-                    def is_shared(key):
-                        if not 'vggt_heads' in key:
-                            return False
-                        else:
-                            return 'vggt_encoder'.join(key.split('vggt_heads')) in encoder_keys
-                    filtered_state_dict = { 
-                        k:v
-                        for k,v in state_dict.items()
-                        if not is_shared(k)
-                    }
-                    model_to_save.save_pretrained(output_dir, state_dict=filtered_state_dict, max_shard_size="10GB")
+                    save_policy_custom(model_to_save, output_dir)
 
     accelerator.register_save_state_pre_hook(save_model_hook)
 
@@ -364,8 +365,9 @@ def train(args, logger):
     if accelerator.is_main_process:
         # accelerator.unwrap_model(policy_model).save_pretrained(args.output_dir)
         model_to_save = accelerator.unwrap_model(policy_model)
-        save_policy_config(model_to_save, args.output_dir)
-        model_to_save.save_pretrained(args.output_dir, max_shard_size="10GB")
+        save_policy_custom(model_to_save, args.output_dir)
+        # TODO change
+        # model_to_save.save_pretrained(args.output_dir, max_shard_size="10GB")
 
         ema_save_path = os.path.join(args.output_dir, f"ema")
         accelerator.save_model(ema_policy_model, ema_save_path)
