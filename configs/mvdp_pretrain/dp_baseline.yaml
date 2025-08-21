@@ -149,6 +149,7 @@ ema:
 # ------------------------------- dataset config
 train_dataset:
   task: robotwin_v1_D435_pretrain
+  demo: null
   _target_: drrm.datasets.drrm_dataset.DRRMDataset
   root: datasets/lerobot_pt/${train_dataset.task}
   repo_id: D-robotics/${train_dataset.task}
