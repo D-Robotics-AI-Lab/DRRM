@@ -37,7 +37,8 @@ adam_epsilon: 1e-8
 # Number of training epochs.
 num_train_epochs: 300
 # Batch size (all devices) for the training dataloader.
-train_batch_size: 256
+# train_batch_size: 256
+train_batch_size: 224
 # Batch size (per device) for the validation dataloader.
 val_batch_size: 64
 # Number of batches to sample from the validation dataset.

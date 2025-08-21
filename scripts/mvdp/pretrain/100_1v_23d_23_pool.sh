@@ -1,7 +1,11 @@
 config=mvdp_1v_23d_23_pool
 path="${config/_*/}_pretrain_${config#*_}"
-export NCCL_DEBUG=INFO              
-export NCCL_ASYNC_ERROR_HANDLING=1 
+# export NCCL_NET=IB
+export NCCL_IB_DISABLE=1
+export NCCL_SOCKET_IFNAME=eth0
+export GLOO_SOCKET_IFNAME=eth0
+# export NCCL_DEBUG=INFO              
+# export NCCL_ASYNC_ERROR_HANDLING=1 
 accelerate launch\
     --config_file configs/accelerate_config_mm.yaml \
     --machine_rank ${DEEPSEED_RANK} \
