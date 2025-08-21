@@ -219,9 +219,13 @@ def train(args, logger):
         batch_size=args.train_batch_size // accelerator.num_processes,  # batch size per device
         drop_last=True,
     )
+    # print("!!!!!!!!!!", accelerator.num_processes, args.train_batch_size, args.train_batch_size // accelerator.num_processes)
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
         batch_sampler=batch_sampler,
+        # sampler=sampler,
+        # batch_size=args.train_batch_size // accelerator.num_processes,
+        # drop_last=True,
         num_workers=args.dataloader_num_workers,
         pin_memory=True,
         persistent_workers=True,
