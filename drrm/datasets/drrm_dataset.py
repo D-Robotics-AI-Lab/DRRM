@@ -149,7 +149,6 @@ class DRRMDataset(LeRobotDataset):
         """Setup train/validation split and return train episodes"""
         tn_episodes = self.dataset_meta.total_episodes
         available_mask = np.zeros(tn_episodes, dtype=bool)
-        self.val_mask = np.zeros(tn_episodes, dtype=bool)
         self.train_mask = np.zeros(tn_episodes, dtype=bool)
         # task list -> task index list
         if self.task_index_list is not None:
@@ -173,7 +172,9 @@ class DRRMDataset(LeRobotDataset):
         
         n_episodes = available_mask.sum()
         val_mask = get_val_mask(n_episodes, self.val_ratio, self.seed)
-        self.val_mask[available_mask] = val_mask
+        if val_mask.sum() > 0:
+            self.val_mask = np.zeros(tn_episodes, dtype=bool)
+            self.val_mask[available_mask] = val_mask
         train_mask = ~val_mask
         train_mask = downsample_mask(train_mask, self.max_train_episodes, self.seed)
         self.train_mask[available_mask] = train_mask
