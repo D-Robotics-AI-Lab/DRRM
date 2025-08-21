@@ -15,7 +15,7 @@ shape_meta:
       type: low_dim
       
 mixed_precision: "bf16"
-output_dir: "checkpoints/mvdp_pretain_1v_3d_23_pool"
+output_dir: "checkpoints/mvdp_pretain_1v_23d_23_pool"
 
 model:
   obs_encoder:
