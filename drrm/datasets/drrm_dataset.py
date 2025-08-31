@@ -158,10 +158,12 @@ class DRRMDataset(LeRobotDataset):
         if self.task_list is None:
             self.task_list = list(self.dataset_meta.tasks.values())
         # task index list -> available_mask
-        if 'task' in self.dataset_meta.episodes[0]:
+        if 'task' in ','.join(self.dataset_meta.episodes[0].keys()):
+            assert not 'task' in self.dataset_meta.episodes[0], \
+                "FORMAT ERRO: detective `task` key in dataset_meta, please change it to `tasks` in list type"
             available_mask[[
-                # bool(set(ep['task']) & set(self.task_list))
-                ep['task'] in set(self.task_list)
+                bool(set(ep['tasks']) & set(self.task_list))
+                # ep['tasks'][0] in set(self.task_list)
                 for ep in self.dataset_meta.episodes.values()
             ]] = True
         else:

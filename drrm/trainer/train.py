@@ -159,6 +159,8 @@ def train(args, logger):
     }
     config = ConfigClass.from_dict(model_args)
     policy_model = PolicyClass(config)
+    if hasattr(args, "checkpoint_dir") and args.checkpoint_dir:
+        load_model(policy_model, os.path.join(args.checkpoint_dir, "model.safetensors"), strict=False)
     # policy_model = load_policy("checkpoints/dp_baseline/test", use_ckp_code = True)
     policy_model.to(accelerator.device)
 
