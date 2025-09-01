@@ -51,7 +51,6 @@ model:
 train_dataset:
   task: place_green
   demo: None
-  task_list: ["${train_dataset.task}"]
   root: datasets/thanos/${train_dataset.task}
   repo_id: D-robotics/${train_dataset.task}
   # npy_feature_keys: null
