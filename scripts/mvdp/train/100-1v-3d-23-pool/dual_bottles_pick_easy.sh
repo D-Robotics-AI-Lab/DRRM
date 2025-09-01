@@ -1,4 +1,4 @@
-config=mvdp_1v_23d_23_pool
+config=mvdp_1v_3d_23_pool
 task=dual_bottles_pick_easy
 demo=100
 path="${config/_*/}_${task}_${demo}_${config#*_}"
