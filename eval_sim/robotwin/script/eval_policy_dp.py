@@ -228,6 +228,7 @@ def test_policy_worker(task_name, args_copy, seed, need, lock, test_num, log_pat
                 Demo_class_copy.play_once()
                 Demo_class_copy.close()
             except Exception as e:
+                print(repr(e))
                 Demo_class_copy.close()
                 continue
         if (not expert_check) or (Demo_class_copy.plan_success and Demo_class_copy.check_success()):
@@ -244,11 +245,15 @@ def test_policy_worker(task_name, args_copy, seed, need, lock, test_num, log_pat
             os.makedirs(dst_dir, exist_ok=True)
             os.environ["DEBUG_DIR"] = dst_dir
             t0 = time.time()
-            result.update(start = t0)
+            result.update(start = t0, device = gpu_id, pid = os.getpid())
             log_result(log_path, ind, result, log_lock)
             Demo_class_copy.test_num = now_id
             Demo_class_copy.setup_demo(now_ep_num = now_id, seed = now_seed, is_test = True, ** args_copy)
-            success, frames, count, limit, infer = Demo_class_copy.apply_dp(dp_copy, args_copy)
+            try:
+                success, frames, count, limit, infer = Demo_class_copy.apply_dp(dp_copy, args_copy)
+            except Exception as e:
+                print(repr(e))
+                success, frames, count, limit, infer = False, 0, None, None, (0,1)
             Demo_class_copy.close()
             if Demo_class_copy.render_freq:
                 Demo_class_copy.viewer.close()
@@ -260,7 +265,6 @@ def test_policy_worker(task_name, args_copy, seed, need, lock, test_num, log_pat
                 frames = frames, fps = frames/delta, 
                 count = count, limit = limit, 
                 infer_cnt = infer[1], infer_time = infer[0], ips = infer[0]/infer[1],
-                device = gpu_id, pid = os.getpid()
             )
             log_result(log_path, ind, result, log_lock)
 

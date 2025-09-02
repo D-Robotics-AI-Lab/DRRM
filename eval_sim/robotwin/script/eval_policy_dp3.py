@@ -13,6 +13,7 @@ import importlib
 import argparse
 from omegaconf import OmegaConf
 from safetensors.torch import load_model
+from transformers import AutoConfig, AutoModel
 import time
 import multiprocessing as mp
 from multiprocessing import Manager, Process, Queue
@@ -26,14 +27,14 @@ parent_directory = os.path.dirname(current_file_path)
 
 def format_result(key: int, res: dict):
     s = f"【{key:03d}】"
-    for k in  ['seed', 'success', 'frames', 'time', 'fps', 'start', 'end', 'cnt', 'limit', 'pid', 'device']:
+    for k in  ['seed', 'success', 'frames', 'time', 'fps', 'infer_cnt', 'infer_time', 'ips', 'start', 'end', 'count', 'limit', 'pid', 'device']:
         if not k in res: continue
-        elif k == 'time': 
+        elif k == 'time' or k == 'infer_time': 
             s += f"{k}: {int(res[k]):03d} s, "
         elif k in ['start', 'end']:
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(res[k]))
             s += f"{k}: {timestamp}, "
-        elif k == "fps":
+        elif k == "fps" or k == "ips":
             s += f"{k}: {res[k]:03.2f}, "
         elif k == 'success':
             if res[k]:
@@ -57,6 +58,23 @@ def log_result(file_path, ind: int, res: dict, lock):
         lines[ind] = string + '\n'
         with open(file_path, 'w', newline='') as f:
             f.writelines(lines)
+
+def load_policy(ckp_path, use_ckp_code = True):
+    if use_ckp_code:
+        policy_model = AutoModel.from_pretrained(ckp_path, trust_remote_code=True)
+        # load state dict of normalizer
+        load_model(policy_model, os.path.join(ckp_path, "model.safetensors"), strict=False)
+    else:
+        # get package path from checkpoint config
+        config = AutoConfig.from_pretrained(ckp_path, trust_remote_code=True) 
+        ConfigClass = hydra.utils.get_class(config.pkg_map['AutoConfig'])
+        PolicyClass = hydra.utils.get_class(config.pkg_map['AutoModel'])
+        # reload config by packege class
+        config = ConfigClass.from_pretrained(ckp_path)
+        policy_model = PolicyClass(config)
+        # load state dict of normalizer
+        load_model(policy_model, os.path.join(ckp_path, "model.safetensors"), strict=False)
+    return policy_model
 
 class DPRunner:
     def __init__(self,
@@ -140,7 +158,7 @@ class DPRunner:
             action_dict = policy.predict_action(obs_dict_input)
 
         # device_transfer
-        np_action_dict = dict_apply(action_dict, lambda x: x.detach().to('cpu').numpy())
+        np_action_dict = dict_apply(action_dict, lambda x: x.detach().to('cpu').float().numpy())
         action = np_action_dict['action'].squeeze(0)
         return action
 
@@ -166,8 +184,9 @@ class DP:
         else:
             self.dtype = torch.float32
         
-        self.policy = hydra.utils.instantiate(model_cfg.model)
-        load_model(self.policy, os.path.join(cfg.checkpoint_dir, "model.safetensors"), strict=False)    # TODO: strict=False
+        # self.policy = hydra.utils.instantiate(model_cfg.model)
+        # load_model(self.policy, os.path.join(cfg.checkpoint_dir, "model.safetensors"), strict=False)    # TODO: strict=False
+        self.policy = load_policy(cfg.checkpoint_dir, use_ckp_code=False)
         self.policy.eval()
         self.policy.to('cuda')
 
@@ -204,9 +223,13 @@ def test_policy_worker(task_name, args_copy, seed, need, lock, test_num, log_pat
             seed.value += 1
         args_copy['render_freq'] = 0
         if expert_check:
-            Demo_class_copy.setup_demo(now_ep_num = test_num-need.value, seed = now_seed, is_test = True, ** args_copy)
-            Demo_class_copy.play_once()
-            Demo_class_copy.close()
+            try:
+                Demo_class_copy.setup_demo(now_ep_num = test_num-need.value, seed = now_seed, is_test = True, ** args_copy)
+                Demo_class_copy.play_once()
+                Demo_class_copy.close()
+            except Exception as e:
+                Demo_class_copy.close()
+                continue
         if (not expert_check) or (Demo_class_copy.plan_success and Demo_class_copy.check_success()):
             with lock: 	# 再次加锁更新共享状态
                 if need.value > 0:
@@ -225,7 +248,7 @@ def test_policy_worker(task_name, args_copy, seed, need, lock, test_num, log_pat
             log_result(log_path, ind, result, log_lock)
             Demo_class_copy.test_num = now_id
             Demo_class_copy.setup_demo(now_ep_num = now_id, seed = now_seed, is_test = True, ** args_copy)
-            success, frames, count, limit = Demo_class_copy.apply_dp3(dp_copy, args_copy)
+            success, frames, count, limit, infer = Demo_class_copy.apply_dp3(dp_copy, args_copy)
             Demo_class_copy.close()
             if Demo_class_copy.render_freq:
                 Demo_class_copy.viewer.close()
@@ -233,8 +256,11 @@ def test_policy_worker(task_name, args_copy, seed, need, lock, test_num, log_pat
             t1 = time.time()
             delta = t1 - t0
             result.update(
-                success = success, end = t1, time = delta, frames = frames,
-                count = count, limit = limit, fps = frames/delta, device = gpu_id, pid = os.getpid()
+                success = success, end = t1, time = delta, 
+                frames = frames, fps = frames/delta, 
+                count = count, limit = limit, 
+                infer_cnt = infer[1], infer_time = infer[0], ips = infer[0]/infer[1],
+                device = gpu_id, pid = os.getpid()
             )
             log_result(log_path, ind, result, log_lock)
 
@@ -279,6 +305,8 @@ def test_policy(task_name, args, st_seed, test_num=20, num_process=1):
         # while not return_queue.empty():
         for i in range(num_process):
             results.append(return_queue.get())
+            ind = list(results[-1].keys())[0]
+            print(f"Get result {i+1}: pid:{results[-1][ind]['pid']} cuda:{results[-1][ind]['device']}")
 
     results = {k: v for d in results for k, v in d.items()}
     success_num = np.array([v['success'] for v in results.values()]).sum()
