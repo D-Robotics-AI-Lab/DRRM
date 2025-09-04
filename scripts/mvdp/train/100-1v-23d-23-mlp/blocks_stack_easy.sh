@@ -1,6 +1,6 @@
 config=mvdp_1v_23d_23_mlp
 task=blocks_stack_easy
-demo=50
+demo=100
 path="${config/_*/}_${task}_${demo}_${config#*_}"
 
 accelerate launch\
