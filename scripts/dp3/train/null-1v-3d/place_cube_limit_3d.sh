@@ -2,7 +2,7 @@
 config=dp34thanos_1v_3d
 task=place_cube_limit_3d
 demo=null
-path="${config/_*/}_${task}_${demo}_${config#*_}"
+path="${config/_*/}_${task}_None_${config#*_}"
 
 accelerate launch\
     --config_file configs/accelerate_config.yaml \
