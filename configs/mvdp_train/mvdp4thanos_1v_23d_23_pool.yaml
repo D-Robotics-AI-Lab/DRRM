@@ -16,7 +16,7 @@ shape_meta:
       
 mixed_precision: "bf16"
 output_dir: "checkpoints/mvdp4thanos_${train_dataset.task}_${train_dataset.demo}_1v_23d_23_pool"
-
+checkpointing_period: 5000
 model:
   obs_encoder:
     _target_: drrm.models.MultiImageObsEncoderEmvisExp1
