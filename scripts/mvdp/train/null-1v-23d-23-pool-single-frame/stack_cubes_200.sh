@@ -1,5 +1,5 @@
 config=mvdp4thanos_1v_23d_23_pool_single_frame
-task=place_tiny_cube_200
+task=stack_cubes_200
 demo=null
 path="${config/_*/}_${task}_None_${config#*_}"
 

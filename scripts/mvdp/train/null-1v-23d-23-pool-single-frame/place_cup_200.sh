@@ -1,4 +1,4 @@
-config=mvdp_1v_23d_23_pool_single_frame
+config=mvdp4thanos_1v_23d_23_pool_single_frame
 task=place_cup_200
 demo=null
 path="${config/_*/}_${task}_None_${config#*_}"
