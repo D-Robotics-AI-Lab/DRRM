@@ -20,6 +20,7 @@ cd $ROBOTICSMANIPULATION_HOME
 git clone https://github.com/facebookresearch/vggt.git
 cd vggt
 pip install -e .
+下载 VGGT ckp 到 ./pretrained/VGGT-1B/model.pt <- bos:/dg-algo/zehao.ni/models/VGGT-1B/model.pt
 
 $ install RoboticsManipulation
 cd $ROBOTICSMANIPULATION_HOME
