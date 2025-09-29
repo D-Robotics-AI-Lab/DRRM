@@ -139,7 +139,7 @@ class DPRunner:
                 self.n_obs_steps
             )
 
-        return result
+        return [result]
 
     def get_action(self, policy, observaton=None):
         device, dtype = policy.device, policy.dtype
@@ -190,7 +190,7 @@ class DP:
         self.policy.eval()
         self.policy.to('cuda')
 
-        self.runner = DPRunner(output_dir=None)
+        self.runner = DPRunner(output_dir=None, n_obs_steps=self.policy.n_obs_steps)
 
     def update_obs(self, observation):
         self.runner.update_obs(observation)
