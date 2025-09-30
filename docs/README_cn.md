@@ -19,6 +19,7 @@ pip install dist/lerobot-0.1.0-py3-none-any.whl
 # vggt中需要依赖numpy<2, 与lerobot冲突
 pip install numpy==1.26.4
 pip install datasets=3.6.0
+pip install safetensors==0.5.3
 
 cd $ROBOTICSMANIPULATION_HOME
 git clone https://github.com/facebookresearch/vggt.git
