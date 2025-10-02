@@ -5,26 +5,23 @@
 export ROBOTICSMANIPULATION_HOME=/path/of/roboticsmanipulation
 conda create -n robotics_manipulation python=3.10
 conda activate robotics_manipulation
+pip install build
 
 # install lerobot
 cd $ROBOTICSMANIPULATION_HOME
 git clone https://github.com/huggingface/lerobot.git
 cd lerobot
-git checkout a445d9c9da6bea99a8972daa4fe1fdd053d711d2
-pip install build
-python -m build
-pip install dist/lerobot-0.1.0-py3-none-any.whl
+git checkout 2b71789e15c35418b1ccecbceb81f4a598bfd883
+pip install .
+<!-- python -m build
+pip install dist/lerobot-0.1.0-py3-none-any.whl -->
 
 # install vggt
 # vggt中需要依赖numpy<2, 与lerobot冲突
-pip install numpy==1.26.4
-pip install datasets=3.6.0
-pip install safetensors==0.5.3
-
 cd $ROBOTICSMANIPULATION_HOME
 git clone https://github.com/facebookresearch/vggt.git
 cd vggt
-pip install -e .
+pip install .
 下载 VGGT ckp 到 ./pretrained/VGGT-1B/model.pt <- bos:/dg-algo/zehao.ni/models/VGGT-1B/model.pt
 
 $ install RoboticsManipulation
