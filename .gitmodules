@@ -1,4 +1,4 @@
-[submodule "drrm/emvis"]
-	path = drrm/emvis
-	url = git@github.com:D-Robotics-AI-Lab/RepresentationLearningVLA.git
-	branch = emvis
+# [submodule "drrm/emvis"]
+# 	path = drrm/emvis
+# 	url = git@github.com:D-Robotics-AI-Lab/RepresentationLearningVLA.git
+# 	branch = emvis

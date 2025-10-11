@@ -5,14 +5,14 @@ import torch
 import torch.nn as nn
 import torchvision
 
-from drrm.models.policy.diffusion_policy.vision.crop_randomizer import CropRandomizer
-from drrm.models.policy.diffusion_policy.common.pytorch_util import dict_apply, replace_submodules
-from drrm.models.policy.diffusion_policy.common.module_attr_mixin import ModuleAttrMixin
+from drrm.models.policy.vodp.vision.crop_randomizer import CropRandomizer
+from drrm.models.policy.vodp.common.pytorch_util import dict_apply, replace_submodules
+from drrm.models.policy.vodp.common.module_attr_mixin import ModuleAttrMixin
 
-from drrm.emvis import EmVisRM
+from drrm.models.policy.vodp.emvis import EmVisRM
 
 
-class MultiImageObsEncoderEmvisExp1(ModuleAttrMixin):
+class MultiImageObsEncoderEmvis(ModuleAttrMixin):
     def __init__(
         self,
         emvis_config: dict = None,
