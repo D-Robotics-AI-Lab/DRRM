@@ -1,5 +1,5 @@
 defaults:
-  - dp_baseline
+  - vodp_baseline
   - _self_
 
 shape_meta:
@@ -15,7 +15,7 @@ shape_meta:
       type: low_dim
       
 mixed_precision: "bf16"
-output_dir: "checkpoints/mvdp_${train_dataset.task}_${train_dataset.demo}_1v_23d_23_mlp_maxpool"
+output_dir: "checkpoints/vodp_${train_dataset.task}_${train_dataset.demo}_1v_2d"
 
 model:
   obs_encoder:
@@ -24,7 +24,6 @@ model:
     # rgb_key: ["head_cam", "front_cam"]
     emvis_config:
       dim_2d: null
-      dim_3d_keys: ['frame', 'global']
       load_vggt_heads: true
       load_vggt_pretrain: true
       vggt_model_path: pretrained/VGGT-1B/model.pt
@@ -34,16 +33,12 @@ model:
       ft_heads: []
       ft_layer_idx: []
       intermediate_layer_idx: [23]
+      only_2d: True
       seq_as_view: False
       only_first_view: True
-      injector_config:
-        fuse_2d: True
-        fuse_3d: True
-        ffn_layer_num: 1
-        dim_out: 1024
+      injector_config: {}
       model_adapter_config:
         target: ResNetAdapter
-        use_max_pool: True
         shape_out: [1, 1]
         dim_out: 512
         conv_num: 3

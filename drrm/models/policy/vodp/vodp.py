@@ -7,8 +7,7 @@ from einops import rearrange, reduce
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 
 from drrm.models.base_policy import BasePolicy
-from drrm.models.policy.vodp.multi_image_obs_encoder import MultiImageObsEncoder
-from drrm.models.policy.vodp.multi_image_obs_encoder_emvis import MultiImageObsEncoderEmvis
+from drrm.models.policy.vodp.vision.obs_encoder import VODPEncoder
 from drrm.models.policy.vodp.diffusion.conditional_unet1d import ConditionalUnet1D
 from drrm.models.policy.vodp.diffusion.mask_generator import LowdimMaskGenerator
 from drrm.models.policy.vodp.common.normalizer import LinearNormalizer
@@ -25,7 +24,7 @@ from transformers import PretrainedConfig, PreTrainedModel
 class VODPConfig(PretrainedConfig):
     shape_meta: dict
     noise_scheduler: DDPMScheduler
-    obs_encoder: MultiImageObsEncoder
+    obs_encoder: VODPEncoder
     horizon: int
     n_action_steps: int
     n_obs_steps: int

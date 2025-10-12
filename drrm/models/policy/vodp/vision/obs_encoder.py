@@ -12,7 +12,7 @@ from drrm.models.policy.vodp.common.module_attr_mixin import ModuleAttrMixin
 from drrm.models.policy.vodp.emvis import EmVisRM
 
 
-class MultiImageObsEncoderEmvis(ModuleAttrMixin):
+class VODPEncoder(ModuleAttrMixin):
     def __init__(
         self,
         emvis_config: dict = None,

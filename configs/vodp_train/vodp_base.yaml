@@ -11,7 +11,7 @@ mixed_precision: "bf16" # "no", "fp16", "bf16"
 # Use `"all"` to report to all integrations.
 report_to: "wandb"
 # The output directory where the model predictions and checkpoints will be written.
-output_dir: checkpoints/dp_baseline
+output_dir: checkpoints/dp_${train_dataset.task}_${train_dataset.demo}_baseline
 # [TensorBoard](https://www.tensorflow.org/tensorboard) log directory. Will default to *output_dir/runs/**CURRENT_DATETIME_HOSTNAME***.
 logging_dir: logs
 # Max number of checkpoints to store. Passed as `total_limit` to the `Accelerator` `ProjectConfiguration`.
@@ -97,10 +97,10 @@ horizon: 8
 n_obs_steps: 3
 n_action_steps: 8
 n_latency_steps: 0
-obs_as_cond: True
+obs_as_global_cond: True
 model:
-  target_config: drrm.models.DiffusionTransformerHybridImagePolicyConfig
-  target_polciy: drrm.models.DiffusionTransformerHybridImagePolicy
+  target_config: drrm.models.VODPConfig
+  target_polciy: drrm.models.VODP
   shape_meta: ${shape_meta}
   noise_scheduler:
     _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
@@ -112,12 +112,9 @@ model:
     clip_sample: True # required when predict_epsilon=False
     prediction_type: epsilon # or sample
   obs_encoder:
-    _target_: drrm.models.policy.diffusion_policy.multi_image_obs_encoder.MultiImageObsEncoder
+    _target_: drrm.models.VODPEncoder
     shape_meta: ${shape_meta}
-    rgb_model:
-      _target_: drrm.models.policy.diffusion_policy.vision.model_getter.get_resnet
-      name: resnet18
-      weights: null
+    emvis_config: null
     resize_shape: null
     crop_shape: null
     # constant center crop
@@ -130,16 +127,14 @@ model:
   n_action_steps: ${eval:'${n_action_steps}+${n_latency_steps}'}
   n_obs_steps: ${n_obs_steps}
   num_inference_steps: 100
-
-  n_layer: 8
-  n_cond_layers: 0  # >0: use transformer encoder for cond, otherwise use MLP
-  n_head: 4
-  n_emb: 256
-  p_drop_emb: 0.0
-  p_drop_attn: 0.3
-  causal_attn: True
-  time_as_cond: True # if false, use BERT like encoder only arch, time as input
-  obs_as_cond: ${obs_as_cond}
+  obs_as_global_cond: ${obs_as_global_cond}
+  # crop_shape: null
+  diffusion_step_embed_dim: 128
+  # down_dims: [512, 1024, 2048]
+  down_dims: [256, 512, 1024]
+  kernel_size: 5
+  n_groups: 8
+  cond_predict_scale: True
 ema:
   update_after_step: 0
   inv_gamma: 1.0
