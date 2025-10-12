@@ -164,19 +164,7 @@ class DPRunner:
 
 class DP:
     def __init__(self, cfg: OmegaConf):
-        model_cfg = OmegaConf.load(cfg.config_name)
-        
-        # 如果配置文件中有defaults字段，需要手动处理继承
-        if 'defaults' in model_cfg:
-            base_config_path = os.path.join(os.path.dirname(cfg.config_name), 
-                                            model_cfg.defaults[0])
-            if not os.path.exists(base_config_path):
-                base_config_path = base_config_path + '.yaml'
-            base_cfg = OmegaConf.load(base_config_path)
-            # 合并配置，model_cfg会覆盖base_cfg中的同名配置
-            model_cfg = OmegaConf.merge(base_cfg, model_cfg)
-
-        dtype = model_cfg.mixed_precision if hasattr(model_cfg, 'mixed_precision') else None
+        dtype = cfg.mixed_precision
         if dtype == 'bf16':
             self.dtype = torch.bfloat16
         elif dtype == 'fp16':
@@ -373,6 +361,7 @@ def main(args):
     cfg['checkpoint_dir'] = args.checkpoint_dir
     cfg['task_name'] = args.task_name
     cfg['config_name'] = args.config_name
+    cfg['mixed_precision'] = args.mixed_precision
     cfg['save_dir'] = args.save_dir
     cfg['num_process'] = args.num_process
     cfg = OmegaConf.create(cfg)
@@ -415,6 +404,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--config-name', type=str, default='dp_baseline.yaml', help='config name to load')
     parser.add_argument('--checkpoint-dir', type=str, default='checkpoints/dp_baseline/checkpoint-20000', help='checkpoint dir')
+    parser.add_argument('--mixed-precision', type=str, default='bf16', help='mixed precision')
     parser.add_argument('--save-dir', type=str, default='eval_result/dp', help='save dir')
     parser.add_argument('--task-name', type=str, default='dual_bottles_pick_easy', help='task name')
     parser.add_argument('--head-camera-type', type=str, default='D435', help='head camera type')
