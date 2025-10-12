@@ -18,7 +18,7 @@ from diffusers.utils import is_wandb_available
 from tqdm.auto import tqdm
 from safetensors.torch import load_model
 
-from drrm.models.ema_model import EMAModel
+from drrm.common.ema_model import EMAModel
 
 
 if is_wandb_available():

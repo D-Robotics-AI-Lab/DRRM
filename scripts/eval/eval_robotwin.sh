@@ -16,11 +16,10 @@ for ((i=1; i<=3; i+=1)); do
         --seed 0
     
     while IFS= read -r -d '' file; do
-        # 提取纯文件名（不含路径）
         filename=$(basename "$file")
         souc=$save_dir/$filename
         dest="${save_dir%/$exp_num}/${exp_num}_${filename}"
-        echo "保留 $exp_num 结果：$souc -> $dest"
+        echo "$souc -> $dest"
         cp $souc $dest
     done < <(find "$save_dir" -maxdepth 1 -type f -print0)
 done

@@ -1,5 +1,5 @@
 #!/bin/bash
-config=dp3
+config_dir=configs/dp3/dp3.yaml
 task_list=(
     'block_hammer_beat' 'bottle_adjust' 'container_place'
     'dual_bottles_pick_hard' 'put_apple_cabinet'
@@ -9,14 +9,12 @@ task_list=(
 )
 demo=100
 
-policy="${config/_*/}"
 for task in "${task_list[@]}"; do
-    path="${config/_*/}_${task}_${demo}_${config#*_}"
     accelerate launch\
         --config_file configs/accelerate_config.yaml \
         main.py \
-        --config-path=configs/dp3 \
-        --config-name=$config.yaml \
+        --config-path="${config_dir%/*}" \
+        --config-name="${config_dir##*/}" \
         train_dataset.task=$task \
         train_dataset.demo=$demo
 done

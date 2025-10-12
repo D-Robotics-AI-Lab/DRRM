@@ -19,7 +19,6 @@ output_dir: "checkpoints/mvdp_${train_dataset.task}_${train_dataset.demo}_3d_3f"
 
 model:
   obs_encoder:
-    _target_: drrm.models.MultiImageObsEncoderEmvisExp1
     out_channels: 526
     # rgb_key: ["head_cam", "front_cam"]
     emvis_config:

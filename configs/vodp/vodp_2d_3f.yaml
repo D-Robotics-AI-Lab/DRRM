@@ -19,7 +19,6 @@ output_dir: "checkpoints/vodp_${train_dataset.task}_${train_dataset.demo}_2d_3f"
 
 model:
   obs_encoder:
-    _target_: drrm.models.MultiImageObsEncoderEmvisExp1
     out_channels: 526
     # rgb_key: ["head_cam", "front_cam"]
     emvis_config:
