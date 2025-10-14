@@ -3,18 +3,18 @@ requires = ["setuptools>=70.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "RoboticsManipulation"
+name = "DRRM"
 version = "0.1"
-description = "RoboticsManipulation."
+description = "D-robotics Robotic Manipulation."
 readme = "README.md"
 requires-python = ">=3.8"
 license = { "text" = "AGPL-3.0" }
 keywords = ["vla", "va", "ML", "DL", "AI"]
 authors = [
-    { name = "fa.fu", email = "fa.fu@d-robotics.com" }
+    { name = "zehao.ni", email = "zehao.ni@d-robotics.com" }
 ]
 maintainers = [
-     { name = "fa.fu", email = "fa.fu@d-robotics.com" },
+     { name = "zehao.ni", email = "zehao.ni@d-robotics.com" },
 ]
 
 classifiers = [
@@ -39,6 +39,8 @@ classifiers = [
 ]
 
 dependencies = [
+    "lerobot",
+    "zarr",
     "diffusers==0.33.1",
     "transformers==4.52.3",
     "accelerate==1.7.0",

@@ -1,10 +1,10 @@
-from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
-from lerobot.common.datasets.lerobot_dataset import LeRobotDatasetMetadata
+from lerobot.datasets.lerobot_dataset import LeRobotDataset
+from lerobot.datasets.lerobot_dataset import LeRobotDatasetMetadata
 from pathlib import Path
 import numpy as np
 import shutil
-from lerobot.common.datasets.compute_stats import sample_images, get_feature_stats
-from lerobot.common.datasets.utils import (
+from lerobot.datasets.compute_stats import sample_images, get_feature_stats
+from lerobot.datasets.utils import (
     validate_episode_buffer,
     get_episode_data_index,
     check_timestamps_sync,

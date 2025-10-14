@@ -1,12 +1,6 @@
 #!/bin/bash
-config_dir=configs/vodp/vodp_23d_3f.yaml
-task_list=(
-    'block_hammer_beat' 'bottle_adjust' 'container_place'
-    'dual_bottles_pick_hard' 'put_apple_cabinet'
-    'tool_adjust' 'pick_apple_messy' 'dual_bottles_pick_easy' 
-    'diverse_bottles_pick' 'empty_cup_place' 'shoe_place' 
-    'dual_shoes_place' 'blocks_stack_easy' 'block_handover'
-)
+config_dir=configs/vodp_train/vodp_23d_1f.yaml
+task='block_hammer_beat'
 demo=100
 
 for task in "${task_list[@]}"; do

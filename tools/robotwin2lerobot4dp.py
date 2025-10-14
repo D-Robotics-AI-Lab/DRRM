@@ -8,7 +8,7 @@ import argparse
 from loguru import logger
 import shutil
 
-from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
+from lerobot.datasets.lerobot_dataset import LeRobotDataset
 
 # Constants
 # TASK_STR = "dual bottles pick easy"

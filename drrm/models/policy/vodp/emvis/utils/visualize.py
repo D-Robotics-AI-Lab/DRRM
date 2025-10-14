@@ -4,7 +4,6 @@ from tqdm import tqdm
 import cv2
 import torch
 import numpy as np
-import open3d as o3d
 
 def save_depth(depth, path):
     # depth: [B,H,W,C]
@@ -24,6 +23,7 @@ def process_and_save(point_cloud, rgb_image, filename, original_height):
         filename: 保存的文件名
         original_height: 原始高度H
     """
+    import open3d as o3d
     # 获取张量形状信息
     V, H, W, C = point_cloud.shape
     _, C_img, H_img, W_img = rgb_image.shape
@@ -65,6 +65,7 @@ def load_and_restore(filename):
         point_cloud_tensor: [H, V*W, 3] 点云张量
         rgb_tensor: [3, H, V*W] RGB张量
     """
+    import open3d as o3d
     # 1. 加载点云和元数据
     pcd = o3d.io.read_point_cloud(filename)
     with open(filename + ".meta", "r") as f:
@@ -205,7 +206,6 @@ def render_point_cloud_video(
     # 释放视频资源
     video_writer.release()
     print(f"视频已保存至: {output_path}")
-
 
 def reproject_point_cloud(
     point_cloud,       # [V, H, W, 3] 相机1坐标系下的点云 (x, y, z)

@@ -1,5 +1,5 @@
 #!/bin/bash
-config_dir=configs/vodp/vodp_23d_1f.yaml
+config_dir=configs/vodp_train/vodp_23d_1f.yaml
 task_list=(
     'block_hammer_beat' 'bottle_adjust' 'container_place'
     'dual_bottles_pick_hard' 'put_apple_cabinet'
@@ -15,6 +15,7 @@ for task in "${task_list[@]}"; do
         main.py \
         --config-path="${config_dir%/*}" \
         --config-name="${config_dir##*/}" \
+        train_dataset.path=datasets/lerobot_D435_200 \
         train_dataset.task=$task \
         train_dataset.demo=$demo
 done
