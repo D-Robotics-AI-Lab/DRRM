@@ -2,7 +2,7 @@
 ## Latest Work: VO-DP
 | VO-DP: Semantic-Geometric Adaptive Diffusion Policy for Vision-Only Robotic Manipulation
 
-
+<video src="https://drobotics-ailab.tos-cn-beijing.volces.com/users/zehao.ni/github/VO-DP-4k_30.mp4" controls="controls" width="500" height="300"></video>
 
 ## Installation
 
