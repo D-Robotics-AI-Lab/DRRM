@@ -1,13 +1,10 @@
 # D-robotics Robotic Manipulation Platform
-## Latest Work: VO-DP
+## 🔥 Latest Work: VO-DP
 | VO-DP: Semantic-Geometric Adaptive Diffusion Policy for Vision-Only Robotic Manipulation
 
-<video width="100%" controls>
-  <source src="https://drobotics-ailab.tos-cn-beijing.volces.com/users/zehao.ni/github/VO-DP-1080_30.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+https://github.com/user-attachments/assets/27a826bd-cd4f-4c0b-b3f3-c17c58bad276
 
-## Installation
+## ⚙️ Installation 
 
 ### Basic Environment Setup
 ```
@@ -32,20 +29,20 @@ pip install .
 
 See [Robotwin Usage Documentation](simulators/README.md) for setup instructions.
 
-### Dataset Preparation
+## 📊 Dataset Preparation
 ```
 mkdir -p datasets
 ```
-#### Preprocessed Dataset Download
+### Preprocessed Dataset Download
 - [Robotwin1.0_200demos_RGB]() -> datasets/lerobot_D435_200
 - [Robotwin1.0_200demos_Pcd]() -> datasets/lerobot43d_D435_200
 
 
-#### Preparing Your Own Dataset
+### Preparing Your Own Dataset
 ......
 
 
-## Training
+## 📑 Training
 1. Modify the acceleration configuration file based on your training environment: [configs/accelerate_config.yaml](configs/accelerate_config.yaml)
 2. In the training script [scripts/train_demo.sh](scripts/train_demo.sh), specify the following parameters:
    - `dataset`: Path to your training dataset
@@ -99,5 +96,5 @@ accelerate launch\
 ### Training Your Own Model
 ......
 
-## Simulation Evaluation
+## 🤖 Simulation Evaluation
 ......
