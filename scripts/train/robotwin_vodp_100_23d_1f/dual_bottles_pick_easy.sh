@@ -1,6 +1,6 @@
 #!/bin/bash
 config_dir=configs/vodp_train/vodp_23d_1f.yaml
-task='block_hammer_beat'
+task='dual_bottles_pick_easy'
 demo=100
 
 accelerate launch\
@@ -15,6 +15,5 @@ accelerate launch\
 config_name="${config_dir##*/}"
 config="${config_name%.*}"
 ckpt_name="${config/_*/}_${task}_${demo}_${config#*_}"
-echo ./checkpoints/$ckpt_name
 cp -r ./checkpoints/$ckpt_name /data/tos/users/zehao.ni/checkpoints/$ckpt_name
 # rm -rf ./checkpoints/$ckpt_name

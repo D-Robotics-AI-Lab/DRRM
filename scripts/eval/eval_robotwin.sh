@@ -8,7 +8,7 @@ for ((i=1; i<=3; i+=1)); do
     exp_num=exp$i
     save_dir="eval_result/$ckpt_name/$exp_num"
 
-    python eval_sim/robotwin/script/eval_policy_$policy.py \
+    python simulators/robotwin/script/eval_policy_$policy.py \
         --checkpoint-dir $ckpt_dir \
         --save-dir $save_dir \
         --task-name $task \
