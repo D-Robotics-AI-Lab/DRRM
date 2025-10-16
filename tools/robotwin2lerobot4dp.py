@@ -49,6 +49,7 @@ def _process_episode(dataset: LeRobotDataset, episode_dir: Path) -> None:
 
     # Persist episode to disk so that an unexpected crash does not lose work.
     dataset.save_episode()
+    dataset.clear_episode_buffer()
 
 
 def main(args):

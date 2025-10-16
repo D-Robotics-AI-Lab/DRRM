@@ -8,7 +8,7 @@ import argparse
 from loguru import logger
 import shutil
 
-from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
+from lerobot.datasets.lerobot_dataset import LeRobotDataset
 
 # Constants
 # TASK_STR = "dual bottles pick easy"
@@ -51,6 +51,7 @@ def _process_episode(dataset: LeRobotDataset, episode_dir: Path) -> None:
 
     # Persist episode to disk so that an unexpected crash does not lose work.
     dataset.save_episode()
+    dataset.clear_episode_buffer()
 
 
 def main(args):
