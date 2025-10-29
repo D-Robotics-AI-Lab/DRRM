@@ -18,7 +18,7 @@ import cv2
 import numpy as np
 import tyro
 from tqdm import tqdm
-from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
+from lerobot.datasets.lerobot_dataset import LeRobotDataset
 
 # Constants
 DEFAULT_IMAGE_SIZE = (320, 240)  # (width, height)
