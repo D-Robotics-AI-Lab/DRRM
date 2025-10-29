@@ -35,8 +35,11 @@ See [Robotwin Usage Documentation](simulators/README.md) for setup instructions.
 mkdir -p datasets
 ```
 ### Preprocessed Dataset Download
-- [Robotwin1.0_200demos_RGB]() -> datasets/lerobot_D435_200
-- [Robotwin1.0_200demos_Pcd]() -> datasets/lerobot43d_D435_200
+Refer to [D-Robotics/DRRM](https://huggingface.co/datasets/D-Robotics/DRRM) for preprocessed datasets:
+
+- Download either `drrm_robotwin1.0_D435_200_pcd` or `drrm_robotwin1.0_D435_200_rgb` to your `datasets/` directory:
+    - [drrm_robotwin1.0_D435_200_rgb (without point clouds)](https://huggingface.co/datasets/D-Robotics/DRRM/tree/main/drrm_robotwin1.0_D435_200_rgb)
+    - [drrm_robotwin1.0_D435_200_pcd](https://huggingface.co/datasets/D-Robotics/DRRM/tree/main/drrm_robotwin1.0_D435_200_pcd)
 
 
 ### Preparing Your Own Dataset
@@ -99,3 +102,13 @@ accelerate launch\
 
 ## 🤖 Simulation Evaluation
 ......
+
+## 👏 Citation
+```
+@article{ni2025vodp,
+  title={VO-DP: Semantic-Geometric Adaptive Diffusion Policy for Vision-Only Robotic Manipulation},
+  author={Zehao Ni and Yonghao He and Lingfeng Qian and Jilei Mao and Fa Fu and Wei Sui and Hu Su and Junran Peng and Zhipeng Wang and Bin He},
+  journal={arXiv preprint arXiv:2510.15530},
+  year={2025}
+}
+```

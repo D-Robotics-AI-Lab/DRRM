@@ -15,7 +15,7 @@ for task in "${task_list[@]}"; do
         main.py \
         --config-path="${config_dir%/*}" \
         --config-name="${config_dir##*/}" \
-        train_dataset.path=datasets/lerobot_D435_200 \
+        train_dataset.path=datasets/drrm_robotwin1.0_D435_200_rgb \
         train_dataset.task=$task \
         train_dataset.demo=$demo
 done
