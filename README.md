@@ -7,57 +7,42 @@
 https://github.com/user-attachments/assets/fdca37aa-164b-4281-a446-3c909a3f1456
 
 
-## ⚙️ Installation 
-
-### Basic Environment Setup
-```
-git clone https://github.com/D-Robotics-AI-Lab/DRRM.git
-# D-robotics Robotic Manipulation Platform
-## 🔥 Latest Work: VO-DP
-[![project page](https://img.shields.io/badge/Project%20Page-VODP-blue)](https://d-robotics-ai-lab.github.io/vodp/)
-[![arXiv paper](https://img.shields.io/badge/arXiv-Paper-red)](https://arxiv.org/abs/2510.15530)
-[![dataset](https://img.shields.io/badge/HuggingFace-Dataset-Yellow)](https://huggingface.co/datasets/D-Robotics/DRRM)
-
 ## ⚙️ Installation
-
 ### Basic Environment Setup
 ```bash
 git clone https://github.com/D-Robotics-AI-Lab/DRRM.git
 cd DRRM
-
 conda create -n drrm python=3.10
 conda activate drrm
 pip install -e .
 ```
 
 ### VODP Environment Setup
-```
-mkdir third_party
+
+```bash
+mkdir -p third_party
 cd third_party
 git clone https://github.com/facebookresearch/vggt.git
 cd vggt
 pip install .
+cd ../..
 ```
 
 ### Robotwin Environment Setup
-
-See [Robotwin Usage Documentation](simulators/README.md) for setup instructions.
+See `simulation/robotwin/README.md` for detailed simulator installation and usage steps.
 
 ## 📊 Dataset Preparation
-```
+Create the `datasets/` directory and download one of the preprocessed dataset bundles from HuggingFace:
+
+```bash
 mkdir -p datasets
 ```
-### Preprocessed Dataset Download
-Refer to [D-Robotics/DRRM](https://huggingface.co/datasets/D-Robotics/DRRM) for preprocessed datasets:
 
-- Download either `drrm_robotwin1.0_D435_200_pcd` or `drrm_robotwin1.0_D435_200_rgb` to your `datasets/` directory:
-    - [drrm_robotwin1.0_D435_200_rgb (without point clouds)](https://huggingface.co/datasets/D-Robotics/DRRM/tree/main/drrm_robotwin1.0_D435_200_rgb)
-    - [drrm_robotwin1.0_D435_200_pcd](https://huggingface.co/datasets/D-Robotics/DRRM/tree/main/drrm_robotwin1.0_D435_200_pcd)
+Preprocessed bundles available (choose one):
+- [`drrm_robotwin1.0_D435_200_rgb`](https://huggingface.co/datasets/D-Robotics/DRRM/tree/main/drrm_robotwin1.0_D435_200_rgb) — RGB-only version (no point clouds)
+- [`drrm_robotwin1.0_D435_200_pcd`](https://huggingface.co/datasets/D-Robotics/DRRM/tree/main/drrm_robotwin1.0_D435_200_pcd) — includes point clouds
 
-
-<!-- ### Preparing Your Own Dataset
-...... -->
-
+Visit https://huggingface.co/datasets/D-Robotics/DRRM to download the dataset and place it under `datasets/`.
 
 ## 📑 Training
 1. Modify the acceleration configuration file based on your training environment: [configs/accelerate_config.yaml](configs/accelerate_config.yaml)
@@ -78,8 +63,6 @@ accelerate launch\
     train_dataset.path=datasets/lerobot_D435_200 \
     train_dataset.task=block_hammer_beat \
     train_dataset.demo=100
-
-# The checkpoint is saved to `checkpoints/vodp_block_hammer_beat_100_23d_1f`
 ```
 
 - Training DP
@@ -92,8 +75,6 @@ accelerate launch\
     train_dataset.path=datasets/lerobot_D435_200 \
     train_dataset.task=block_hammer_beat \
     train_dataset.demo=100
-
-# The checkpoint is saved to `checkpoints/vodp_block_hammer_beat_100_23d_1f`
 ```
 
 - Training DP3
@@ -106,8 +87,6 @@ accelerate launch\
     train_dataset.path=datasets/lerobot43d_D435_200 \
     train_dataset.task=block_hammer_beat \
     train_dataset.demo=100
-
-# The checkpoint is saved to `checkpoints/vodp_block_hammer_beat_100_23d_1f`
 ```
 
 <!-- ### Training Your Own Model
