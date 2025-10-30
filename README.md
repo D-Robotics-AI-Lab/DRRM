@@ -1,11 +1,9 @@
 # D-robotics Robotic Manipulation Platform
 ## 🔥 Latest Work: VO-DP
-https://github.com/user-attachments/assets/fdca37aa-164b-4281-a446-3c909a3f1456
+[![arxiv paper](https://img.shields.io/badge/arXiv-Paper-red)](https://arxiv.org/abs/2412.14680)
+[![project page](https://img.shields.io/badge/Project%20Page-GitHub-blue)](https://d-robotics-ai-lab.github.io/vodp/)
 
-<p align="center">
-    [![arxiv paper](https://img.shields.io/badge/arXiv-Paper-red)](https://arxiv.org/abs/2412.14680)
-    [![project page](https://img.shields.io/badge/Project%20Page-GitHub-blue)](https://d-robotics-ai-lab.github.io/vodp/)
-</p>
+https://github.com/user-attachments/assets/fdca37aa-164b-4281-a446-3c909a3f1456
 
 
 ## ⚙️ Installation 
