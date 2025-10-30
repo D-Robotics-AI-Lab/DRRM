@@ -1,7 +1,8 @@
 # D-robotics Robotic Manipulation Platform
 ## 🔥 Latest Work: VO-DP
-[![arxiv paper](https://img.shields.io/badge/arXiv-Paper-red)](https://arxiv.org/abs/2412.14680)
 [![project page](https://img.shields.io/badge/Project%20Page-GitHub-blue)](https://d-robotics-ai-lab.github.io/vodp/)
+[![arXiv paper](https://img.shields.io/badge/arXiv-Paper-red)](https://arxiv.org/abs/2510.15530)
+[![dataset](https://img.shields.io/badge/Dataset-DRRM-blue)](https://huggingface.co/datasets/D-Robotics/DRRM)
 
 https://github.com/user-attachments/assets/fdca37aa-164b-4281-a446-3c909a3f1456
 
@@ -10,6 +11,17 @@ https://github.com/user-attachments/assets/fdca37aa-164b-4281-a446-3c909a3f1456
 
 ### Basic Environment Setup
 ```
+git clone https://github.com/D-Robotics-AI-Lab/DRRM.git
+# D-robotics Robotic Manipulation Platform
+## 🔥 Latest Work: VO-DP
+[![project page](https://img.shields.io/badge/Project%20Page-GitHub-blue)](https://d-robotics-ai-lab.github.io/vodp/)
+[![arXiv paper](https://img.shields.io/badge/arXiv-Paper-red)](https://arxiv.org/abs/2510.15530)
+[![dataset](https://img.shields.io/badge/Dataset-DRRM-blue)](https://huggingface.co/datasets/D-Robotics/DRRM)
+
+## ⚙️ Installation
+
+### Basic Environment Setup
+```bash
 git clone https://github.com/D-Robotics-AI-Lab/DRRM.git
 cd DRRM
 
