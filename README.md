@@ -99,15 +99,15 @@ DRRM is compatible with the Robotwin simulator — refer to the following files:
 - `scripts/eval/robotwin_exp/` — example experiment wrappers used in our paper.
 - `simulation/robotwin/script/` — simulator-facing Python evaluation scripts (e.g. `eval_policy_vodp.py`, `eval_policy_dp.py`, `eval_policy_dp3.py`).
 
-Supported benchmark tasks (example list):
+Supported benchmark tasks:
 
 ```
-task_list = [
-        'block_hammer_beat', 'bottle_adjust', 'container_place',
-        'dual_bottles_pick_hard', 'put_apple_cabinet',
-        'tool_adjust', 'pick_apple_messy', 'dual_bottles_pick_easy',
-        'diverse_bottles_pick', 'empty_cup_place', 'shoe_place',
-        'dual_shoes_place', 'blocks_stack_easy', 'block_handover'
+[
+    'block_hammer_beat', 'bottle_adjust', 'container_place',
+    'dual_bottles_pick_hard', 'put_apple_cabinet',
+    'tool_adjust', 'pick_apple_messy', 'dual_bottles_pick_easy',
+    'diverse_bottles_pick', 'empty_cup_place', 'shoe_place',
+    'dual_shoes_place', 'blocks_stack_easy', 'block_handover'
 ]
 ```
 
