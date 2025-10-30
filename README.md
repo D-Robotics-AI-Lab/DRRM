@@ -1,8 +1,12 @@
 # D-robotics Robotic Manipulation Platform
 ## 🔥 Latest Work: VO-DP
-| VO-DP: Semantic-Geometric Adaptive Diffusion Policy for Vision-Only Robotic Manipulation
-
+<div align="center">
+<br>
 https://github.com/user-attachments/assets/fdca37aa-164b-4281-a446-3c909a3f1456
+<br>
+[![arxiv paper](https://img.shields.io/badge/arXiv-Paper-red)](https://arxiv.org/abs/2412.14680)
+[![project page](https://img.shields.io/badge/Project%20Page-GitHub-blue)](https://d-robotics-ai-lab.github.io/vodp/)
+</div>
 
 
 ## ⚙️ Installation 
