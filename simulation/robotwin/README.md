@@ -1,49 +1,91 @@
-## robotwin安装
+# RobotWin — Installation & Setup
+
+This document describes the minimal steps to set up the RobotWin simulation environment used in this project.
+
+## Overview
+
+- Install system Vulkan drivers and tools.
+- Create and activate the conda environment.
+- Install Python dependencies (specific tested versions).
+- Download required assets.
+- Apply two small, local edits to the mplib planner to avoid runtime errors.
+
+## Prerequisites
+
+Install Vulkan and related drivers:
+```bash
+sudo apt update
+sudo apt install -y libvulkan1 mesa-vulkan-drivers vulkan-tools
 ```
-apt install libvulkan1 mesa-vulkan-drivers vulkan-tools
 
-conda activate robotics_manipulation
+## Python environment
+
+Activate your conda environment (replace `drrm` with your env name if different):
+```bash
+conda activate drrm
+```
+
+Install required Python packages (versions used in this project):
+```bash
 pip install sapien==3.0.0b1 scipy==1.10.1 mplib==0.1.1 trimesh==4.4.3 open3d==0.18.0 openai
+pip install "git+https://github.com/facebookresearch/pytorch3d.git@stable"
+```
 
-cd $ROBOTICSMANIPULATION_HOME
-git clone https://github.com/facebookresearch/pytorch3d.git
-cd pytorch3d
-pip install -e .
+## Download assets
 
-下载aloha_urdf.zip && main_models.zip到asserts文件夹中
+From the robotwin root, create an assets directory and download:
+```bash
+cd simulation/robotwin
+mkdir -p assets
+cd assets
+python ../script/download_asset.py
+```
 
+Unpack the downloaded zips:
+```bash
+unzip background_texture.zip && rm -f background_texture.zip
+unzip embodiments.zip && rm -f embodiments.zip
+unzip objects.zip && rm -f objects.zip
+```
 
-Modify mplib Library Code
-3.1 Remove convex=True
-# mplib.planner (mplib/planner.py) line 71
-# remove `convex=True`
+## Required local edits to mplib
 
+Two small edits to mplib avoid compatibility issues. Edit `mplib/planner.py` in your site-packages or your local copy.
+
+1) Remove `convex=True` parameter when creating ArticulatedModel (around line ~71):
+Before:
+```py
 self.robot = ArticulatedModel(
-            urdf,
-            srdf,
-            [0, 0, -9.81],
-            user_link_names,
-            user_joint_names,
-            convex=True,
-            verbose=False,
-        )
-=> 
+    urdf,
+    srdf,
+    [0, 0, -9.81],
+    user_link_names,
+    user_joint_names,
+    convex=True,
+    verbose=False,
+)
+```
+After:
+```py
 self.robot = ArticulatedModel(
-            urdf,
-            srdf,
-            [0, 0, -9.81],
-            user_link_names,
-            user_joint_names,
-            # convex=True,
-            verbose=False,
-        )
-3.2 Remove or collide
-# mplib.planner (mplib/planner.py) line 848
-# remove `or collide`
+    urdf,
+    srdf,
+    [0, 0, -9.81],
+    user_link_names,
+    user_joint_names,
+    # convex=True,
+    verbose=False,
+)
+```
 
+2) Remove `or collide` from the screw planning failure condition (around line ~848):
+Before:
+```py
 if np.linalg.norm(delta_twist) < 1e-4 or collide or not within_joint_limit:
-                return {"status": "screw plan failed"}
-=>
+    return {"status": "screw plan failed"}
+```
+After:
+```py
 if np.linalg.norm(delta_twist) < 1e-4 or not within_joint_limit:
-                return {"status": "screw plan failed"}
+    return {"status": "screw plan failed"}
 ```

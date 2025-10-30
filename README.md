@@ -1,8 +1,8 @@
 # D-robotics Robotic Manipulation Platform
 ## 🔥 Latest Work: VO-DP
-[![project page](https://img.shields.io/badge/Project%20Page-GitHub-blue)](https://d-robotics-ai-lab.github.io/vodp/)
-[![arXiv paper](https://img.shields.io/badge/arXiv-Paper-red)](https://arxiv.org/abs/2510.15530)
-[![dataset](https://img.shields.io/badge/Dataset-DRRM-blue)](https://huggingface.co/datasets/D-Robotics/DRRM)
+[![project page](https://img.shields.io/badge/Project%20Page-DRRM-orange)](https://d-robotics-ai-lab.github.io/vodp/)
+[![arXiv paper](https://img.shields.io/badge/Paper-arXiv-red)](https://arxiv.org/abs/2510.15530)
+[![dataset](https://img.shields.io/badge/Dataset-HuggingFace-yellow)](https://huggingface.co/datasets/D-Robotics/DRRM)
 
 https://github.com/user-attachments/assets/fdca37aa-164b-4281-a446-3c909a3f1456
 
@@ -14,9 +14,9 @@ https://github.com/user-attachments/assets/fdca37aa-164b-4281-a446-3c909a3f1456
 git clone https://github.com/D-Robotics-AI-Lab/DRRM.git
 # D-robotics Robotic Manipulation Platform
 ## 🔥 Latest Work: VO-DP
-[![project page](https://img.shields.io/badge/Project%20Page-GitHub-blue)](https://d-robotics-ai-lab.github.io/vodp/)
+[![project page](https://img.shields.io/badge/Project%20Page-VODP-blue)](https://d-robotics-ai-lab.github.io/vodp/)
 [![arXiv paper](https://img.shields.io/badge/arXiv-Paper-red)](https://arxiv.org/abs/2510.15530)
-[![dataset](https://img.shields.io/badge/Dataset-DRRM-blue)](https://huggingface.co/datasets/D-Robotics/DRRM)
+[![dataset](https://img.shields.io/badge/HuggingFace-Dataset-Yellow)](https://huggingface.co/datasets/D-Robotics/DRRM)
 
 ## ⚙️ Installation
 
@@ -55,8 +55,8 @@ Refer to [D-Robotics/DRRM](https://huggingface.co/datasets/D-Robotics/DRRM) for 
     - [drrm_robotwin1.0_D435_200_pcd](https://huggingface.co/datasets/D-Robotics/DRRM/tree/main/drrm_robotwin1.0_D435_200_pcd)
 
 
-### Preparing Your Own Dataset
-......
+<!-- ### Preparing Your Own Dataset
+...... -->
 
 
 ## 📑 Training
@@ -110,11 +110,61 @@ accelerate launch\
 # The checkpoint is saved to `checkpoints/vodp_block_hammer_beat_100_23d_1f`
 ```
 
-### Training Your Own Model
-......
+<!-- ### Training Your Own Model
+...... -->
 
 ## 🤖 Simulation Evaluation
-......
+DRRM is compatible with the Robotwin simulator — refer to the following files:
+
+- `scripts/eval/eval_robotwin.sh` — convenience shell wrapper used for experiments.
+- `scripts/eval/robotwin_exp/` — example experiment wrappers used in our paper.
+- `simulation/robotwin/script/` — simulator-facing Python evaluation scripts (e.g. `eval_policy_vodp.py`, `eval_policy_dp.py`, `eval_policy_dp3.py`).
+
+Supported benchmark tasks (example list):
+
+```
+task_list = [
+        'block_hammer_beat', 'bottle_adjust', 'container_place',
+        'dual_bottles_pick_hard', 'put_apple_cabinet',
+        'tool_adjust', 'pick_apple_messy', 'dual_bottles_pick_easy',
+        'diverse_bottles_pick', 'empty_cup_place', 'shoe_place',
+        'dual_shoes_place', 'blocks_stack_easy', 'block_handover'
+]
+```
+
+
+### Basic usage
+Replace `YOUR/CHECKPOINT/DIR` and `YOUR/SAVE/DIR` with the paths to your checkpoint directory and the directory where you want to store evaluation results. The `--num-process` flag controls parallel simulator workers.
+
+```bash
+# Evaluate VODP
+python simulation/robotwin/script/eval_policy_vodp.py \
+    --checkpoint-dir YOUR/CHECKPOINT/DIR \
+    --save-dir YOUR/SAVE/DIR \
+    --task-name TASK_NAME \
+    --num-process 8 \
+    --seed 0
+```
+
+```bash
+# Evaluate DP
+python simulation/robotwin/script/eval_policy_dp.py \
+    --checkpoint-dir YOUR/CHECKPOINT/DIR \
+    --save-dir YOUR/SAVE/DIR \
+    --task-name TASK_NAME \
+    --num-process 8 \
+    --seed 0
+```
+
+```bash
+# Evaluate DP3
+python simulation/robotwin/script/eval_policy_dp3.py \
+    --checkpoint-dir YOUR/CHECKPOINT/DIR \
+    --save-dir YOUR/SAVE/DIR \
+    --task-name TASK_NAME \
+    --num-process 8 \
+    --seed 0
+```
 
 ## 👏 Citation
 ```
