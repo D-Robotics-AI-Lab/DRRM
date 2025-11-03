@@ -51,7 +51,6 @@ Visit https://huggingface.co/datasets/D-Robotics/DRRM to download the dataset an
    - `task`: Your training task
    - `demo`: Number of demonstration samples to use (set to `null` for unlimited)
    - `config_dir`: Training configuration directory (refer to [configs/](configs/))
-   These parameters can also be set directly in the training command.
 
 - Training VODP
 ```
