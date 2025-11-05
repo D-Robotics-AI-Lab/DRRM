@@ -14,7 +14,7 @@ import envs._GLOBAL_CONFIGS as CONFIGS
 from envs.utils import transforms
 from .planner import CuroboPlanner
 import torch.multiprocessing as mp
-
+import mplib.planner
 
 class Robot:
 

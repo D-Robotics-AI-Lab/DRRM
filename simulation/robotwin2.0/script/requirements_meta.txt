@@ -11,7 +11,7 @@ imageio==2.34.2
 pydantic
 zarr
 openai
-huggingface_hub
+huggingface_hub==0.25.0
 h5py
 # For Description Generation
 azure==4.0.0

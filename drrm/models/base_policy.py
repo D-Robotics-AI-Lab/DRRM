@@ -21,6 +21,9 @@ class BasePolicy(
         nn.Module, 
         CompatiblePyTorchModelHubMixin, 
     ):
+
+    n_action_steps: int
+    n_obs_steps: int
     
     # ========= Train  ============
     def compute_loss(self, *args, **kwargs) -> torch.Tensor:

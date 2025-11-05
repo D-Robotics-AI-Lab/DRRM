@@ -19,11 +19,12 @@ import importlib
 import argparse
 import pdb
 
-from generate_episode_instructions import *
+from description.utils.generate_episode_instructions import *
+
 
 current_file_path = os.path.abspath(__file__)
 parent_directory = os.path.dirname(current_file_path)
-
+# os.chdir(os.path.join(os.getcwd(), "simulation/robotwin2.0"))
 
 def class_decorator(task_name):
     envs_module = importlib.import_module(f"envs.{task_name}")
