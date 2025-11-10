@@ -6,6 +6,8 @@
 
 https://github.com/user-attachments/assets/fdca37aa-164b-4281-a446-3c909a3f1456
 
+## 🌟 Update Log
+- **2025-11**: xxxxxxxx
 
 ## ⚙️ Installation
 ### Basic Environment Setup
