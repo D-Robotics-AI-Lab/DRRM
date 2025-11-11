@@ -209,7 +209,7 @@ class Base_task(gym.Env):
         loader.fix_root_link = True
 
         self.robot = loader.load(
-            kwargs.get("urdf_path", os.path.join(os.path.dirname(__file__), "../aloha_maniskill_sim/urdf/arx5_description_isaac.urdf"))
+            kwargs.get("urdf_path", os.path.join(os.path.dirname(__file__), "../assets/aloha_maniskill_sim/urdf/arx5_description_isaac.urdf"))
         )
 
         # set root pose 

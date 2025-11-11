@@ -43,9 +43,8 @@ python ../script/download_asset.py
 
 Unpack the downloaded zips:
 ```bash
-unzip background_texture.zip && rm -f background_texture.zip
-unzip embodiments.zip && rm -f embodiments.zip
-unzip objects.zip && rm -f objects.zip
+unzip aloha_urdf.zip && rm -f aloha_urdf.zip
+unzip main_models.zip && rm -f main_models.zip
 ```
 
 ## Required local edits to mplib
