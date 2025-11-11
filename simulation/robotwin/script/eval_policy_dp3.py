@@ -76,7 +76,7 @@ def load_policy(ckp_path, use_ckp_code = True):
         load_model(policy_model, os.path.join(ckp_path, "model.safetensors"), strict=False)
     return policy_model
 
-class DPRunner:
+class DP3Runner:
     def __init__(self,
                  output_dir,
                  eval_episodes=20,
@@ -162,7 +162,7 @@ class DPRunner:
         action = np_action_dict['action'].squeeze(0)
         return action
 
-class DP:
+class DP3:
     def __init__(self, cfg: OmegaConf):
         dtype = cfg.mixed_precision
         if dtype == 'bf16':
@@ -178,7 +178,7 @@ class DP:
         self.policy.eval()
         self.policy.to('cuda')
 
-        self.runner = DPRunner(output_dir=None)
+        self.runner = DP3Runner(output_dir=None)
 
     def update_obs(self, observation):
         self.runner.update_obs(observation)
@@ -198,7 +198,7 @@ class DP:
 def test_policy_worker(task_name, args_copy, seed, need, lock, test_num, log_path, log_lock, result_queue, gpu_id = None):
     if gpu_id != None: os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
     Demo_class_copy = class_decorator(task_name)
-    dp_copy = DP(args_copy)
+    dp_copy = DP3(args_copy)
     expert_check = True
     Demo_class_copy.suc = 0
     # Demo_class_copy.test_num = test_num_list_sub[0]

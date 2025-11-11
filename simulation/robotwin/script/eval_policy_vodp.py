@@ -76,7 +76,7 @@ def load_policy(ckp_path, use_ckp_code = True):
         load_model(policy_model, os.path.join(ckp_path, "model.safetensors"), strict=False)
     return policy_model
 
-class DPRunner:
+class VODPRunner:
     def __init__(self,
                  output_dir,
                  eval_episodes=20,
@@ -139,7 +139,7 @@ class DPRunner:
                 self.n_obs_steps
             )
 
-        return [result]
+        return result
 
     def get_action(self, policy, observaton=None):
         device, dtype = policy.device, policy.dtype
@@ -162,7 +162,7 @@ class DPRunner:
         action = np_action_dict['action'].squeeze(0)
         return action
 
-class DP:
+class VODP:
     def __init__(self, cfg: OmegaConf):
 
         dtype = cfg.mixed_precision
@@ -179,7 +179,7 @@ class DP:
         self.policy.eval()
         self.policy.to('cuda')
 
-        self.runner = DPRunner(output_dir=None, n_obs_steps=self.policy.n_obs_steps)
+        self.runner = VODPRunner(output_dir=None, n_obs_steps=self.policy.n_obs_steps)
 
     def update_obs(self, observation):
         self.runner.update_obs(observation)
@@ -199,7 +199,7 @@ class DP:
 def test_policy_worker(task_name, args_copy, seed, need, lock, test_num, log_path, log_lock, result_queue, gpu_id = None):
     if gpu_id != None: os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
     Demo_class_copy = class_decorator(task_name)
-    dp_copy = DP(args_copy)
+    dp_copy = VODP(args_copy)
     expert_check = True
     Demo_class_copy.suc = 0
     # Demo_class_copy.test_num = test_num_list_sub[0]
@@ -207,7 +207,7 @@ def test_policy_worker(task_name, args_copy, seed, need, lock, test_num, log_pat
 
     render_freq = args_copy['render_freq']
     while need.value > 0:
-        with lock:  # 加锁保证原子操作
+        with lock:
             now_seed = seed.value
             seed.value += 1
         args_copy['render_freq'] = 0
@@ -221,7 +221,7 @@ def test_policy_worker(task_name, args_copy, seed, need, lock, test_num, log_pat
                 Demo_class_copy.close()
                 continue
         if (not expert_check) or (Demo_class_copy.plan_success and Demo_class_copy.check_success()):
-            with lock: 	# 再次加锁更新共享状态
+            with lock:
                 if need.value > 0:
                     now_id = test_num-need.value
                     need.value -= 1
