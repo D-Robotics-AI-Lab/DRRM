@@ -139,7 +139,7 @@ class DPRunner:
                 self.n_obs_steps
             )
 
-        return [result]
+        return result
 
     def get_action(self, policy, observaton=None):
         device, dtype = policy.device, policy.dtype
@@ -207,7 +207,7 @@ def test_policy_worker(task_name, args_copy, seed, need, lock, test_num, log_pat
 
     render_freq = args_copy['render_freq']
     while need.value > 0:
-        with lock:  # 加锁保证原子操作
+        with lock:
             now_seed = seed.value
             seed.value += 1
         args_copy['render_freq'] = 0
@@ -221,7 +221,7 @@ def test_policy_worker(task_name, args_copy, seed, need, lock, test_num, log_pat
                 Demo_class_copy.close()
                 continue
         if (not expert_check) or (Demo_class_copy.plan_success and Demo_class_copy.check_success()):
-            with lock: 	# 再次加锁更新共享状态
+            with lock:
                 if need.value > 0:
                     now_id = test_num-need.value
                     need.value -= 1

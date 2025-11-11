@@ -221,7 +221,7 @@ def create_glb(
     model_id = None,
     model_z_val = False
 ) -> sapien.Entity:
-    modeldir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "../models/"+modelname+"/")
+    modeldir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "../assets/models/"+modelname+"/")
     if model_id is None:
         file_name = modeldir + "base.glb"
         json_file_path = modeldir + 'model_data.json'

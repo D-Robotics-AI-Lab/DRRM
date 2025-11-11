@@ -16,6 +16,7 @@ Install Vulkan and related drivers:
 ```bash
 sudo apt update
 sudo apt install -y libvulkan1 mesa-vulkan-drivers vulkan-tools
+sudo apt install ffmpeg
 ```
 
 ## Python environment

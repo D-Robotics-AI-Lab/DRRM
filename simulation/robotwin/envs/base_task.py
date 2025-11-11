@@ -340,13 +340,13 @@ class Base_task(gym.Env):
             See planner.py for more details on the arguments.
         """
         self.left_planner = mplib.Planner(
-            urdf=kwargs.get("urdf_path", os.path.join(os.path.dirname(__file__), "../aloha_maniskill_sim/urdf/arx5_description_isaac.urdf")),
-            srdf=kwargs.get("srdf_path", os.path.join(os.path.dirname(__file__), "../aloha_maniskill_sim/srdf/arx5_description_isaac.srdf")),
+            urdf=kwargs.get("urdf_path", os.path.join(os.path.dirname(__file__), "../assets/aloha_maniskill_sim/urdf/arx5_description_isaac.urdf")),
+            srdf=kwargs.get("srdf_path", os.path.join(os.path.dirname(__file__), "../assets/aloha_maniskill_sim/srdf/arx5_description_isaac.srdf")),
             move_group=kwargs.get("move_group", "fl_link6"),
         )
         self.right_planner = mplib.Planner(
-            urdf=kwargs.get("urdf_path", os.path.join(os.path.dirname(__file__), "../aloha_maniskill_sim/urdf/arx5_description_isaac.urdf")),
-            srdf=kwargs.get("srdf_path", os.path.join(os.path.dirname(__file__), "../aloha_maniskill_sim/srdf/arx5_description_isaac.srdf")),
+            urdf=kwargs.get("urdf_path", os.path.join(os.path.dirname(__file__), "../assets/aloha_maniskill_sim/urdf/arx5_description_isaac.urdf")),
+            srdf=kwargs.get("srdf_path", os.path.join(os.path.dirname(__file__), "../assets/aloha_maniskill_sim/srdf/arx5_description_isaac.srdf")),
             move_group=kwargs.get("move_group", "fr_link6"),
         )
 
