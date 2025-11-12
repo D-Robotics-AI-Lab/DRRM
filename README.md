@@ -7,7 +7,8 @@
 https://github.com/user-attachments/assets/fdca37aa-164b-4281-a446-3c909a3f1456
 
 ## 🌟 Update Log
-- **2025-11**: xxxxxxxx
+- **2025-11**: The robotwin2.0 simulator is available now! Check out the [simulation/robotwin2.0](simulation/robotwin2.0/)
+- **2025-10**: We release the code and dataset for our latest work [VO-DP: Semantic-Geometric Adaptive Diffusion Policy for Vision-Only Robotic Manipulation](https://arxiv.org/abs/2510.15530).
 
 ## ⚙️ Installation
 ### Basic Environment Setup
