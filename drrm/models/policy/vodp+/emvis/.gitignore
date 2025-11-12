@@ -1,0 +1,8 @@
+*.egg-info/
+*.egg
+build
+*/__pycache__/
+**/__pycache__/
+out/
+.venv/
+third_party/
