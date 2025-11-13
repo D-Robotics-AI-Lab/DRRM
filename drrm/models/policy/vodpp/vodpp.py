@@ -7,12 +7,12 @@ from einops import rearrange, reduce
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 
 from drrm.models.base_policy import BasePolicy
-from drrm.models.policy.vodp.vision.obs_encoder import VODPEncoder
-from drrm.models.policy.vodp.diffusion.conditional_unet1d import ConditionalUnet1D
-from drrm.models.policy.vodp.diffusion.mask_generator import LowdimMaskGenerator
-from drrm.models.policy.vodp.common.normalizer import LinearNormalizer
-from drrm.models.policy.vodp.common.pytorch_util import dict_apply
-from drrm.models.policy.vodp.common.module_attr_mixin import ModuleAttrMixin
+from .vision.obs_encoder import SceneEncoder as VODPPlusEncoder
+from .diffusion.conditional_unet1d import ConditionalUnet1D
+from .diffusion.mask_generator import LowdimMaskGenerator
+from .common.normalizer import LinearNormalizer
+from .common.pytorch_util import dict_apply
+from .common.module_attr_mixin import ModuleAttrMixin
 
 import yaml
 import json
@@ -24,7 +24,7 @@ from transformers import PretrainedConfig, PreTrainedModel
 class VODPPlusConfig(PretrainedConfig):
     shape_meta: dict
     noise_scheduler: DDPMScheduler
-    obs_encoder: VODPEncoder
+    obs_encoder: VODPPlusEncoder
     horizon: int
     n_action_steps: int
     n_obs_steps: int
