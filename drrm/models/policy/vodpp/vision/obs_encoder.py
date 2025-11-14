@@ -16,20 +16,26 @@ class SceneEncoder(ModuleAttrMixin):
     def __init__(
         self,
         emvis_config: dict = None,
-        out_channels: int = None,
+        shape_meta: dict = None,
         rgb_key: list[str] = ['head_cam'],
         state_key: str = 'agent_pos',
         **kwargs
     ):
         super().__init__()
         self.state_key = state_key
-        self.out_channels = out_channels
         self.rgb_key = rgb_key
         self.scene_encoder = EmVisRM(**emvis_config)
+        
+        self.out_view_meta = len(rgb_key)
+        self.out_shape_meta = self.scene_encoder.shape_out
+        self.out_dim_meta = self.scene_encoder.dim_out \
+            + (shape_meta['obs'][state_key]['shape'][0] if state_key else 0)
 
     def forward(self, obs_dict):
         batch_size = None
         features = list()
+        BS = next(iter(obs_dict.values())).shape[0]
+        VP = self.out_view_meta * self.out_shape_meta[0] * self.out_shape_meta[1]
 
         # process vggt input or rgb input
         if "spatial_tokens_4" in obs_dict.keys() or "spatial_tokens_11" in obs_dict.keys() or "spatial_tokens_17" in obs_dict.keys() or "spatial_tokens_23" in obs_dict.keys() \
@@ -64,22 +70,26 @@ class SceneEncoder(ModuleAttrMixin):
             emvis_feat = self.scene_encoder(vggt_token_dict=vggt_tokens_dict).squeeze(1).squeeze(1)
             features.append(emvis_feat)
         else:
-            BS = obs_dict[self.state_key].shape[0]
-            batch_size = BS // 3
             rgb_image = torch.cat([obs_dict[key].unsqueeze(1) for key in self.rgb_key], dim=1) # BS, V, C, H, W 
             # 重塑图像形状并归一化到0-1范围
             rgb_image = (rgb_image + 1) / 2  # 从[-1,1]归一化到[0,1]
-            emvis_feat = self.scene_encoder(rgb_image, batch_size=batch_size) # BS, V, C, H, W -> BS, V, 1, dim
-            emvis_feat = emvis_feat.reshape(BS, -1) # BS, V*dim
+            emvis_feat = self.scene_encoder(rgb_image) # BS, V, C, H, W -> BS, V, 1, dim
+            out_format =  (BS, -1) if self.state_key else (BS, VP, -1) # BS, V*P, dim / BS, dim
+            emvis_feat = emvis_feat.reshape(*out_format)
             features.append(emvis_feat)
         
         # process lowdim input
-        agent_pos = obs_dict[self.state_key]
-        features.append(agent_pos)
+        if self.state_key:
+            agent_pos = obs_dict[self.state_key]
+            features.append(agent_pos)
         
         # concatenate all features
         result = torch.cat(features, dim=-1)  # 512 * 2 + 14 = 1038
         return result
     
-    def output_shape(self):
-        return torch.Size([self.out_channels])    # TODO: 改成自动推导
+    def output_shape_meta(self):
+        """
+        return:
+            Views, H, W, Channels
+        """
+        return torch.Size([self.out_view_meta, *self.out_shape_meta, self.out_dim_meta]) 

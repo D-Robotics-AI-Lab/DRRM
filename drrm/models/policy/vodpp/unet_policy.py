@@ -21,7 +21,7 @@ from typing import Optional
 from transformers import PretrainedConfig, PreTrainedModel
 
 @dataclass
-class VODPPlusConfig(PretrainedConfig):
+class VODPPlusUnetConfig(PretrainedConfig):
     shape_meta: dict
     noise_scheduler: DDPMScheduler
     obs_encoder: VODPPlusEncoder
@@ -35,7 +35,6 @@ class VODPPlusConfig(PretrainedConfig):
     kernel_size: int = 5
     n_groups: int = 8
     cond_predict_scale: bool = True
-    out_channels: int = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -62,10 +61,10 @@ class VODPPlusConfig(PretrainedConfig):
         return cls(**config_dict)
 
 
-class VODPPlus(BasePolicy, PreTrainedModel, ModuleAttrMixin):
-    config_class = VODPPlusConfig
+class VODPPlusUnet(BasePolicy, PreTrainedModel, ModuleAttrMixin):
+    config_class = VODPPlusUnetConfig
 
-    def __init__(self, config: VODPPlusConfig):
+    def __init__(self, config: VODPPlusUnetConfig):
         super().__init__(config)
         action_shape = config.shape_meta['action']['shape']
         noise_scheduler = hydra.utils.instantiate(config.noise_scheduler)
@@ -85,8 +84,8 @@ class VODPPlus(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         assert len(action_shape) == 1
         action_dim = action_shape[0]
         # get feature dim
-        # obs_feature_dim = obs_encoder.output_shape()[0]
-        obs_feature_dim = config.out_channels
+        V, H, W, dim = obs_encoder.output_shape_meta()
+        obs_feature_dim = V * H * W * dim
 
         # create diffusion model
         input_dim = action_dim + obs_feature_dim
@@ -203,6 +202,7 @@ class VODPPlus(BasePolicy, PreTrainedModel, ModuleAttrMixin):
             # reshape back to B, Do
             global_cond = nobs_features.reshape(B, -1)
             # empty data for action
+            # TODO: verify if this is correct. Why not use state trajectory?
             cond_data = torch.zeros(size=(B, T, Da), device=device, dtype=dtype)
             cond_mask = torch.zeros_like(cond_data, dtype=torch.bool)
         else:

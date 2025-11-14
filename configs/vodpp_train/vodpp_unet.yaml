@@ -99,8 +99,8 @@ n_action_steps: 8
 n_latency_steps: 0
 obs_as_global_cond: True
 model:
-  target_config: drrm.models.VODPPlusConfig
-  target_policy: drrm.models.VODPPlus
+  target_config: drrm.models.VODPPlusUnetConfig
+  target_policy: drrm.models.VODPPlusUnet
   shape_meta: ${shape_meta}
   noise_scheduler:
     _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler

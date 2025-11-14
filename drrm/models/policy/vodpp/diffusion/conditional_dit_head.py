@@ -46,7 +46,7 @@ class DiTwithDDPM(nn.Module):
         # We will use trainable sin-cos embeddings
         # [timestep; state; action]
         self.x_pos_embed = nn.Parameter(
-            torch.zeros(1, horizon+3, hidden_size))
+            torch.zeros(1, horizon+1, hidden_size))
         # Image conditions
         self.scene_cond_pos_embed = nn.Parameter(
             torch.zeros(1, scene_cond_len, hidden_size))
@@ -71,8 +71,6 @@ class DiTwithDDPM(nn.Module):
             embed_dim=self.hidden_size,
             mm_cond_lens=OrderedDict([
                 ('timestep', 1),
-                ('ctrl_freq', 1),
-                ('state', 1),
                 ('action', self.horizon),
             ])
         )

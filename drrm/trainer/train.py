@@ -150,7 +150,7 @@ def train(args, logger):
     # Policy Model creation
     model_args = OmegaConf.to_container(args.model)
     pkg_config = model_args.pop('target_config')
-    pkg_policy = model_args.pop('target_polciy')
+    pkg_policy = model_args.pop('target_policy')
     ConfigClass = hydra.utils.get_class(pkg_config)
     PolicyClass = hydra.utils.get_class(pkg_policy)
     model_args['pkg_map'] = {
@@ -260,7 +260,7 @@ def train(args, logger):
     # We need to initialize the trackers we use, and also store our configuration.
     # The trackers initializes automatically on the main process.
     if accelerator.is_main_process:
-        accelerator.init_trackers("RoboticsManipulation", config=dict(args))
+        accelerator.init_trackers("DRRM", config=dict(args))
 
     # Train!
     max_iters = len(train_dataloader)

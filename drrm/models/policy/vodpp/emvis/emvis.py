@@ -172,6 +172,8 @@ class EmVisRM(nn.Module):
             )
             dim_now = model_adapter_config['dim_out']
         else: self.model_adapter = None
+        self.dim_out = dim_now
+        self.shape_out = model_adapter_config['shape_out']
 
         total_params = sum(p.numel() for p in self.parameters())
         trainable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
