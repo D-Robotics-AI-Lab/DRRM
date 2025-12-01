@@ -15,7 +15,7 @@ from drrm.models.base_policy import BasePolicy
 from drrm.models.base_runner import BaseRunner, load_policy
 
 
-class VODPRunner(BaseRunner):
+class VODPPRunner(BaseRunner):
 
     def __init__(
         self,
@@ -40,7 +40,7 @@ class VODPRunner(BaseRunner):
             assert checkpoint_dir is not None, "Either policy or checkpoint_dir must be provided"
             self.policy = load_policy(checkpoint_dir, use_ckp_code=False)
             self.policy.eval()
-            self.policy.to('cuda')
+            self.policy.to('cuda') if 'device' not in kwargs else self.policy.to(kwargs['device'])
         if mixed_precision == 'bf16':
             self.dtype = torch.bfloat16
         elif mixed_precision == 'fp16':
@@ -98,11 +98,9 @@ class VODPRunner(BaseRunner):
 
     def get_action(self, observaton=None):
         policy: BasePolicy = self.policy
-        if observaton == None:
-            print('==== Get empty observation ===')
-            return False
+        if observaton != None:
+            self.obs.append(observaton)  # update
         device, dtype = policy.device, self.dtype
-        self.obs.append(observaton)  # update
         obs = self.get_n_steps_obs()
 
         # create obs dict
@@ -137,5 +135,5 @@ class VODPRunner(BaseRunner):
         pass
 
 if __name__ == '__main__':
-    test = VODPRunner('./')
+    test = VODPPRunner('./')
     print('ready')

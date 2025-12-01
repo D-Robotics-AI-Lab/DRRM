@@ -1,5 +1,5 @@
 defaults:
-  - vodpp_unet
+  - vodpp_dit_ddpm
   - _self_
 n_obs_steps: 1
 
@@ -16,11 +16,11 @@ shape_meta:
       type: low_dim
       
 mixed_precision: "bf16"
-output_dir: "checkpoints/vodpp_${train_dataset.task}_${train_dataset.demo}_unet_23d_1f"
+output_dir: "checkpoints/vodpp_${train_dataset.task}_${train_dataset.demo}_dit_ddpm_23d_1f"
 
 model:
   obs_encoder:
-    out_channels: 526
+    state_key: null
     # rgb_key: ["head_cam", "front_cam"]
     emvis_config:
       dim_2d: null
@@ -43,8 +43,7 @@ model:
         dim_out: 1024
       model_adapter_config:
         target: ResNetAdapter
-        shape_out: [1, 1]
+        shape_out: [2, 2]
         dim_out: 1024
         conv_num: 3
       mv_fuser_config: {}
-  out_channels: 1038

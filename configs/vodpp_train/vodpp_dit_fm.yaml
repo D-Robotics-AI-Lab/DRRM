@@ -98,21 +98,17 @@ n_obs_steps: 3
 n_action_steps: 8
 n_latency_steps: 0
 model:
-  target_config: drrm.models.VODPPlusDitConfig
-  target_policy: drrm.models.VODPPlusDit
+  target_config: drrm.models.VODPPlusDitFlowMatchingConfig
+  target_policy: drrm.models.VODPPlusDitFlowMatching
   shape_meta: ${shape_meta}
   noise_scheduler:
-    _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
-    num_train_timesteps: 100
-    num_inference_timesteps: 5
+    num_train_timesteps: 1000
+    num_inference_timesteps: 10
     beta_schedule: squaredcos_cap_v2
-    clip_sample: False
-    prediction_type: sample
-  noise_scheduler_sample:
-    _target_: diffusers.schedulers.scheduling_dpmsolver_multistep.DPMSolverMultistepScheduler
-    num_train_timesteps: ${model.noise_scheduler.num_train_timesteps}
-    beta_schedule: ${model.noise_scheduler.beta_schedule}
-    prediction_type: ${model.noise_scheduler.prediction_type}
+    noise_beta_alpha: 1.5
+    noise_beta_beta: 1.0
+    noise_s: 0.999
+    prediction_type: velocity
   obs_encoder:
     _target_: drrm.models.VODPPlusEncoder
     shape_meta: ${shape_meta}

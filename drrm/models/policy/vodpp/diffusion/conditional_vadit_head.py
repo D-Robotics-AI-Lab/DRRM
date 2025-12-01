@@ -14,12 +14,12 @@ from collections import OrderedDict
 import torch
 import torch.nn as nn
 
-from .blocks import (FinalLayer, Block, TimestepEmbedder,
+from .blocks import (FinalLayer, InvBlock, TimestepEmbedder,
                                get_1d_sincos_pos_embed_from_grid,
                                get_multimodal_cond_pos_embed)
 
 
-class DiT(nn.Module):
+class VADiT(nn.Module):
     """
     Class for Robotics Diffusion Transformers.
     """
@@ -27,6 +27,7 @@ class DiT(nn.Module):
         self,
         output_dim: int,
         horizon: int,
+        n_obs_steps: int,
         hidden_size=1152,
         depth=28,
         num_heads=16,
@@ -42,6 +43,9 @@ class DiT(nn.Module):
         self.dtype = dtype
         self.scene_pos_embed_config = scene_pos_embed_config
 
+        self.state_mask = torch.zeros(horizon+1).bool()
+        self.state_mask[1:n_obs_steps+1] = True
+
         self.t_embedder = TimestepEmbedder(hidden_size, dtype=dtype)
         
         # We will use trainable sin-cos embeddings
@@ -53,7 +57,7 @@ class DiT(nn.Module):
             torch.zeros(1, scene_cond_len, hidden_size))
         
         self.blocks = nn.ModuleList([
-            Block(hidden_size, num_heads, self_attn_first) for _ in range(depth)
+            InvBlock(hidden_size, num_heads, self_attn_first) for _ in range(depth)
         ])
         self.final_layer = FinalLayer(hidden_size, output_dim)
         self.initialize_weights()
@@ -125,7 +129,7 @@ class DiT(nn.Module):
         # Forward pass
         for i, block in enumerate(self.blocks):
             c, mask = scene_c, scene_mask
-            x = block(x, c, mask)                       # (B, T+1, D)
+            x = block(x, c, mask, self.state_mask)                       # (B, T+1, D)
         # Inject the language condition at the final layer
         x = self.final_layer(x)                         # (B, T+1, out_channels)
 

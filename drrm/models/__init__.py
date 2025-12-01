@@ -2,4 +2,5 @@ from .policy.diffusion_policy.diffusion_unet_image_policy import DiffusionUnetIm
 from .policy.diffusion_policy_3d.dp3 import DP3, DP3Config
 from .policy.vodp.vodp import VODP, VODPConfig, VODPEncoder
 from .policy.vodpp.unet_policy import VODPPlusUnet, VODPPlusUnetConfig, VODPPlusEncoder
-from .policy.vodpp.dit_policy import VODPPlusDit, VODPPlusDitConfig, VODPPlusEncoder
+from .policy.vodpp.dit_ddpm_policy import VODPPlusDitDDPM, VODPPlusDitDDPMConfig, VODPPlusEncoder
+from .policy.vodpp.dit_fm_policy import VODPPlusDitFlowMatching, VODPPlusDitFlowMatchingConfig, VODPPlusEncoder

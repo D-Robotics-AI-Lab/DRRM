@@ -75,7 +75,6 @@ def load_policy(ckp_path, use_ckp_code = True):
         # load state dict of normalizer
         load_model(policy_model, os.path.join(ckp_path, "model.safetensors"), strict=False)
     return policy_model
-
 class VODPRunner:
     def __init__(self,
                  output_dir,
@@ -196,7 +195,14 @@ class VODP:
     def get_last_obs(self):
         return self.runner.obs[-1]
 
-def test_policy_worker(task_name, args_copy, seed, need, lock, test_num, log_path, log_lock, result_queue, gpu_id = None):
+def test_policy_worker(
+    task_name, args_copy, 
+    seed, need, lock, 
+    test_num, log_path, 
+    log_lock, 
+    result_queue, 
+    gpu_id = None
+):
     if gpu_id != None: os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
     Demo_class_copy = class_decorator(task_name)
     dp_copy = VODP(args_copy)
@@ -278,7 +284,7 @@ def test_policy(task_name, args, st_seed, test_num=20, num_process=1):
         log_lock = manager.Lock() 
         args_list = [deepcopy(args) for _ in range(num_process)]
 
-        # 进程池
+        # Thread Pool
         # To use CUDA with multiprocessing, you must use the 'spawn' start method
         mp.set_start_method('spawn', force=True)
         processes = []
@@ -303,7 +309,6 @@ def test_policy(task_name, args, st_seed, test_num=20, num_process=1):
 
     results = {k: v for d in results for k, v in d.items()}
     success_num = np.array([v['success'] for v in results.values()]).sum()
-    # 合并结果
     return 0, int(success_num), results
 
 def get_camera_config(camera_type):

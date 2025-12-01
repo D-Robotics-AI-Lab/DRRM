@@ -11,6 +11,7 @@
 # --------------------------------------------------------
 
 
+import functools
 import math
 from collections import OrderedDict
 
@@ -139,15 +140,16 @@ class CrossAttention(nn.Module):
 
 
 #################################################################################
-#                                 RDT Block                                     #
+#                                 DiT Block                                     #
 #################################################################################
-class RDTBlock(nn.Module):
+class Block(nn.Module):
     """
     A RDT block with cross-attention conditioning.
     """
-    def __init__(self, hidden_size, num_heads, **block_kwargs):
+    def __init__(self, hidden_size, num_heads, self_attn_first=True, **block_kwargs):
         super().__init__()
         self.norm1 = RmsNorm(hidden_size, eps=1e-6)
+        self.self_attn_first = self_attn_first
         self.attn = Attention(
             dim=hidden_size, num_heads=num_heads, 
             qkv_bias=True, qk_norm=True, 
@@ -165,14 +167,20 @@ class RDTBlock(nn.Module):
         self.norm3 = RmsNorm(hidden_size, eps=1e-6)
 
     def forward(self, x, c, mask=None):
+        if self.self_attn_first:
+            attn1 = self.attn
+            attn2 = functools.partial(self.cross_attn, c=c, mask=mask)
+        else:
+            attn1 = functools.partial(self.cross_attn, c=c, mask=mask)
+            attn2 = self.attn
         origin_x = x
         x = self.norm1(x)
-        x = self.attn(x)
+        x = attn1(x)
         x = x + origin_x
 
         origin_x = x
         x = self.norm2(x)
-        x = self.cross_attn(x, c, mask)
+        x = attn2(x)
         x = x + origin_x
 
         origin_x = x
@@ -182,6 +190,172 @@ class RDTBlock(nn.Module):
 
         return x
 
+
+#################################################################################
+#                           Large DiT Block.                                    #
+#################################################################################
+class LargeBlock(nn.Module):
+    """
+    A RDT block with cross-attention conditioning.
+    """
+    def __init__(self, hidden_size, num_heads, action_only=False, **block_kwargs):
+        super().__init__()
+        self.action_only = action_only
+
+        self.norm1 = RmsNorm(hidden_size, eps=1e-6)
+        self.attn = Attention(
+            dim=hidden_size, num_heads=num_heads, 
+            qkv_bias=True, qk_norm=True, 
+            norm_layer=RmsNorm,**block_kwargs)
+        
+        self.norm2 = RmsNorm(hidden_size, eps=1e-6)
+        self.mm_cross_attn = CrossAttention(
+            hidden_size, num_heads=num_heads, 
+            qkv_bias=True, qk_norm=True, 
+            norm_layer=RmsNorm,**block_kwargs)
+        
+        self.norm3 = RmsNorm(hidden_size, eps=1e-6)
+        self.as_cross_attn = CrossAttention(
+            hidden_size, num_heads=num_heads, 
+            qkv_bias=True, qk_norm=True, 
+            norm_layer=RmsNorm,**block_kwargs)
+        
+        approx_gelu = lambda: nn.GELU(approximate="tanh")
+        self.ffn = Mlp(in_features=hidden_size, 
+            hidden_features=hidden_size, 
+            act_layer=approx_gelu, drop=0)
+        self.norm4 = RmsNorm(hidden_size, eps=1e-6)
+
+    def forward(self, x, c, mask=None, state_mask=None):
+        if self.action_only:
+            meta_x = x
+            x = x[:,~state_mask,...]
+
+        # multimodal cross-attention
+        origin_x = x
+        x = self.norm1(x)
+        x = self.mm_cross_attn(x, c, mask)
+        x = x + origin_x
+
+        # action self-attention
+        origin_x = x
+        x = self.norm2(x)
+        x = self.attn(x)
+        x = x + origin_x
+
+        # action-state cross-attention
+        origin_x = x
+        x = self.norm3(x)
+        x = self.as_cross_attn(x, c, None)
+        x = x + origin_x
+
+        origin_x = x
+        x = self.norm4(x)
+        x = self.ffn(x)
+        x = x + origin_x
+
+        if self.action_only:
+            meta_x[:,~state_mask,...] = x
+            x = meta_x
+        return x
+
+#################################################################################
+#                                 InvBlock                                     #
+#################################################################################
+class InvBlock(nn.Module):
+    """
+    A RDT block with cross-attention conditioning.
+    """
+    def __init__(self, hidden_size, num_heads, self_attn_first=True, **block_kwargs):
+        super().__init__()
+        self.norm1 = RmsNorm(hidden_size, eps=1e-6)
+        self.cross_attn = CrossAttention(
+            hidden_size, num_heads=num_heads, 
+            qkv_bias=True, qk_norm=True, 
+            norm_layer=RmsNorm,**block_kwargs)
+        
+        self.norm2 = RmsNorm(hidden_size, eps=1e-6)
+        approx_gelu = lambda: nn.GELU(approximate="tanh")
+        self.ffn = Mlp(in_features=hidden_size, 
+            hidden_features=hidden_size, 
+            act_layer=approx_gelu, drop=0)
+        self.norm3 = RmsNorm(hidden_size, eps=1e-6)
+
+    def forward(self, x, c, mask=None):
+        origin_x = x
+        x = self.norm1(x)
+        x = self.cross_attn(x, c=c, mask=mask)
+        x = x + origin_x
+
+        origin_x = x
+        x = self.norm3(x)
+        x = self.ffn(x)
+        x = x + origin_x
+
+        return x
+
+#################################################################################
+#                          Decouple DiT Block                                   #
+#################################################################################
+class DecoupleBlock(nn.Module):
+    """
+    A RDT block with cross-attention conditioning.
+    """
+    def __init__(self, hidden_size, num_heads, self_attn_first=True, **block_kwargs):
+        super().__init__()
+        self.self_attn_first = False
+
+        self.norm1 = RmsNorm(hidden_size, eps=1e-6)
+        self.attn = Attention(
+            dim=hidden_size, num_heads=num_heads, 
+            qkv_bias=True, qk_norm=True, 
+            norm_layer=RmsNorm,**block_kwargs)
+        
+        self.norm2 = RmsNorm(hidden_size, eps=1e-6)
+        self.mm_cross_attn = CrossAttention(
+            hidden_size, num_heads=num_heads, 
+            qkv_bias=True, qk_norm=True, 
+            norm_layer=RmsNorm,**block_kwargs)
+        
+        self.norm3 = RmsNorm(hidden_size, eps=1e-6)
+        self.as_cross_attn = CrossAttention(
+            hidden_size, num_heads=num_heads, 
+            qkv_bias=True, qk_norm=True, 
+            norm_layer=RmsNorm,**block_kwargs)
+        
+        approx_gelu = lambda: nn.GELU(approximate="tanh")
+        self.ffn = Mlp(in_features=hidden_size, 
+            hidden_features=hidden_size, 
+            act_layer=approx_gelu, drop=0)
+        self.norm4 = RmsNorm(hidden_size, eps=1e-6)
+
+    def forward(self, x, c, mask=None, state_mask=None):
+        # multimodal cross-attention
+        ax = x[:,~state_mask,...]
+        origin_ax = ax
+        ax = self.norm1(ax)
+        ax = self.mm_cross_attn(ax, c, mask)
+        ax = ax + origin_ax
+
+        # action self-attention
+        origin_ax = ax
+        ax = self.norm2(ax)
+        ax = self.attn(ax)
+        ax = ax + origin_ax
+        x[:,~state_mask,...] = ax
+
+        # action-state cross-attention
+        origin_x = x
+        x = self.norm3(x)
+        x = self.as_cross_attn(x, c, None)
+        x = x + origin_x
+
+        origin_x = x
+        x = self.norm4(x)
+        x = self.ffn(x)
+        x = x + origin_x
+
+        return x
 
 class FinalLayer(nn.Module):
     """

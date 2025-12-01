@@ -35,7 +35,6 @@ def class_decorator(task_name):
         raise SystemExit("No Task")
     return env_instance
 
-
 def eval_function_decorator(policy_name, model_name):
     try:
         policy_model = importlib.import_module(policy_name)
@@ -221,28 +220,28 @@ def eval_policy(task_name,
         args["render_freq"] = 0
 
         if expert_check:
-            try:
-                TASK_ENV.setup_demo(now_ep_num=now_id, seed=now_seed, is_test=True, **args)
-                episode_info = TASK_ENV.play_once()
-                TASK_ENV.close_env()
-            except UnStableError as e:
-                # print(" -------------")
-                # print("Error: ", e)
-                # print(" -------------")
-                TASK_ENV.close_env()
-                now_seed += 1
-                args["render_freq"] = render_freq
-                continue
-            except Exception as e:
-                # stack_trace = traceback.format_exc()
-                # print(" -------------")
-                # print("Error: ", e)
-                # print(" -------------")
-                TASK_ENV.close_env()
-                now_seed += 1
-                args["render_freq"] = render_freq
-                print("error occurs !")
-                continue
+            # try:
+            TASK_ENV.setup_demo(now_ep_num=now_id, seed=now_seed, is_test=True, **args)
+            episode_info = TASK_ENV.play_once()
+            TASK_ENV.close_env()
+            # except UnStableError as e:
+            #     # print(" -------------")
+            #     # print("Error: ", e)
+            #     # print(" -------------")
+            #     TASK_ENV.close_env()
+            #     now_seed += 1
+            #     args["render_freq"] = render_freq
+            #     continue
+            # except Exception as e:
+            #     # stack_trace = traceback.format_exc()
+            #     # print(" -------------")
+            #     # print("Error: ", e)
+            #     # print(" -------------")
+            #     TASK_ENV.close_env()
+            #     now_seed += 1
+            #     args["render_freq"] = render_freq
+            #     print("error occurs !")
+            #     continue
 
         if (not expert_check) or (TASK_ENV.plan_success and TASK_ENV.check_success()):
             succ_seed += 1

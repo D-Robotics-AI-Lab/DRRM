@@ -8,5 +8,5 @@ demo=100
 policy="${config/_*/}"
 for task in "${task_list[@]}"; do
     echo $task $policy $ckpt_name
-    ./scripts/eval/eval_robotwin2.0.sh VODP $task agilex_config
+    ./scripts/eval/eval_robotwin2.0.sh VODP $task agilex_config 23d_1f
 done

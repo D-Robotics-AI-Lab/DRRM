@@ -19,7 +19,7 @@ import importlib
 import argparse
 import pdb
 
-from generate_episode_instructions import *
+from description.utils.generate_episode_instructions import *
 
 
 import sys

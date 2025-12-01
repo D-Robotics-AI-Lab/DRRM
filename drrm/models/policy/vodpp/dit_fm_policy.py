@@ -11,10 +11,7 @@ from diffusers.schedulers.scheduling_dpmsolver_multistep import \
     DPMSolverMultistepScheduler
 
 from drrm.models.base_policy import BasePolicy
-from .diffusion.conditional_dit_head import DiTwithDDPM
 from .vision.obs_encoder import SceneEncoder as VODPPlusEncoder
-from .diffusion.conditional_unet1d import ConditionalUnet1D
-from .diffusion.mask_generator import LowdimMaskGenerator
 from .common.normalizer import LinearNormalizer
 from .common.pytorch_util import dict_apply
 from .common.module_attr_mixin import ModuleAttrMixin
@@ -26,10 +23,9 @@ from typing import Optional
 from transformers import PretrainedConfig, PreTrainedModel
 
 @dataclass
-class VODPPlusDitConfig(PretrainedConfig):
+class VODPPlusDitFlowMatchingConfig(PretrainedConfig):
     shape_meta: dict
-    noise_scheduler: DDPMScheduler
-    noise_scheduler_sample: DPMSolverMultistepScheduler
+    noise_scheduler: dict
     obs_encoder: VODPPlusEncoder
     hidden_size: int
     depth: int
@@ -43,6 +39,8 @@ class VODPPlusDitConfig(PretrainedConfig):
     kernel_size: int = 5
     n_groups: int = 8
     cond_predict_scale: bool = True
+    self_attn_first: bool = True
+    block_type: str = ''
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -69,14 +67,19 @@ class VODPPlusDitConfig(PretrainedConfig):
         return cls(**config_dict)
 
 
-class VODPPlusDit(BasePolicy, PreTrainedModel, ModuleAttrMixin):
-    config_class = VODPPlusDitConfig
+class VODPPlusDitFlowMatching(BasePolicy, PreTrainedModel, ModuleAttrMixin):
+    config_class = VODPPlusDitFlowMatchingConfig
 
-    def __init__(self, config: VODPPlusDitConfig):
+    def __init__(self, config: VODPPlusDitFlowMatchingConfig):
         super().__init__(config)
-        self.num_inference_timesteps = config.noise_scheduler.pop('num_inference_timesteps')
-        self.noise_scheduler = hydra.utils.instantiate(config.noise_scheduler)
-        self.noise_scheduler_sample = hydra.utils.instantiate(config.noise_scheduler_sample)
+        self.num_timestep_buckets = config.noise_scheduler['num_train_timesteps']
+        self.num_inference_timesteps = config.noise_scheduler['num_inference_timesteps']
+        self.beta_dist = torch.distributions.Beta(
+            config.noise_scheduler['noise_beta_alpha'], 
+            config.noise_scheduler['noise_beta_beta']
+        )
+        self.noise_s = config.noise_scheduler['noise_s']
+        
         self.obs_encoder = hydra.utils.instantiate(config.obs_encoder)
 
         action_shape = config.shape_meta['action']['shape']
@@ -90,20 +93,77 @@ class VODPPlusDit(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         # get feature dim
         V, H, W, dim = self.obs_encoder.output_shape_meta() # V, H, W, D
         obs_feature_dim = dim
+        action_mask = torch.zeros(1, horizon, action_dim).bool()
+        action_mask[:,n_obs_steps:,:] = True
 
         # create diffusion model
         num_patches = H * W
         scene_cond_len = (config.n_obs_steps * V * num_patches)
         scene_pos_embed_config = [("image", (config.n_obs_steps, V, num_patches)),]
-        self.model = DiTwithDDPM(
-            output_dim=action_dim,
-            horizon=horizon,
-            hidden_size=hidden_size,
-            depth=config.depth,
-            num_heads=config.num_heads,
-            scene_cond_len=scene_cond_len,
-            scene_pos_embed_config=scene_pos_embed_config
-        )
+        
+        if config.block_type.lower() == 'invblock':
+            from .diffusion.conditional_dit_decouple_head import DecoupleDiT
+            self.model = DecoupleDiT(
+                output_dim=action_dim,
+                horizon=horizon,
+                n_obs_steps=n_obs_steps,
+                hidden_size=hidden_size,
+                depth=config.depth,
+                num_heads=config.num_heads,
+                self_attn_first=config.self_attn_first,
+                scene_cond_len=scene_cond_len,
+                scene_pos_embed_config=scene_pos_embed_config
+            )
+        elif config.block_type.lower() == 'largeblock':
+            from .diffusion.conditional_largedit_head import LargeDiT
+            self.model = LargeDiT(
+                output_dim=action_dim,
+                horizon=horizon,
+                n_obs_steps=n_obs_steps,
+                hidden_size=hidden_size,
+                depth=config.depth,
+                num_heads=config.num_heads,
+                action_only=False,
+                scene_cond_len=scene_cond_len,
+                scene_pos_embed_config=scene_pos_embed_config
+            )
+        elif config.block_type.lower() == 'nostateblock':
+            self.model = LargeDiT(
+                output_dim=action_dim,
+                horizon=horizon,
+                n_obs_steps=n_obs_steps,
+                hidden_size=hidden_size,
+                depth=config.depth,
+                num_heads=config.num_heads,
+                action_only=True,
+                scene_cond_len=scene_cond_len,
+                scene_pos_embed_config=scene_pos_embed_config
+            )
+        elif config.block_type.lower() == 'vablock':
+            from .diffusion.conditional_vadit_head import VADiT
+            self.model = VADiT(
+                output_dim=action_dim,
+                horizon=horizon,
+                n_obs_steps=n_obs_steps,
+                hidden_size=hidden_size,
+                depth=config.depth,
+                num_heads=config.num_heads,
+                action_only=True,
+                scene_cond_len=scene_cond_len,
+                scene_pos_embed_config=scene_pos_embed_config
+            )
+        else:
+            from .diffusion.conditional_dit_head import DiT
+            self.model = DiT(
+                output_dim=action_dim,
+                horizon=horizon,
+                hidden_size=hidden_size,
+                depth=config.depth,
+                num_heads=config.num_heads,
+                self_attn_first=config.self_attn_first,
+                scene_cond_len=scene_cond_len,
+                scene_pos_embed_config=scene_pos_embed_config
+            )
 
         self.scene_adaptor = self.build_condition_adapter(
             config.scene_adaptor, 
@@ -132,8 +192,7 @@ class VODPPlusDit(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         self.action_dim = action_dim
         self.n_action_steps = n_action_steps
         self.n_obs_steps = n_obs_steps
-        self.action_mask = torch.zeros(1, horizon, action_dim).bool()
-        self.action_mask[:,n_obs_steps:,:] = True
+        self.action_mask = action_mask
         # self.kwargs = kwargs
         self.kwargs = {} #
 
@@ -185,29 +244,33 @@ class VODPPlusDit(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         )
 
         # Set step values
-        self.noise_scheduler_sample.set_timesteps(self.num_inference_timesteps)
+        num_steps = self.num_inference_timesteps
+        dt = 1.0 / num_steps
 
         state_mask = ~action_mask
-        for t in self.noise_scheduler_sample.timesteps:
+        for t in range(num_steps):
+            # timesteps = t.unsqueeze(-1).to(device)
+            t_discretized = int(t / float(num_steps) * self.num_timestep_buckets)
+            timesteps = torch.full(
+                size=(batch_size,), fill_value=t_discretized, device=device
+            )
             # Prepare state-action trajectory
             noisy_action[state_mask] = state_traj[state_mask]
             state_action_traj = self.state_adaptor(noisy_action)
             
             # Predict the model output
-            model_output = self.model(state_action_traj, 
-                                      t.unsqueeze(-1).to(device), scene_cond)
+            pred_velocity = self.model(state_action_traj, timesteps, scene_cond)
             
             # Compute previous actions: x_t -> x_t-1
-            noisy_action = self.noise_scheduler_sample.step(
-                model_output, t, noisy_action).prev_sample
-            noisy_action = noisy_action.to(state_traj.dtype)
+            noisy_action = noisy_action + dt * pred_velocity
+            # noisy_action = noisy_action.to(state_traj.dtype)
         
         # Finally apply the action mask to mask invalid action dimensions
         noisy_action[state_mask] = state_traj[state_mask]
 
         return noisy_action
 
-
+    @torch.no_grad()
     def predict_action(self, obs_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         """
         obs_dict: must include "obs" key
@@ -235,7 +298,7 @@ class VODPPlusDit(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         nobs_features = self.obs_encoder(this_nobs) # (BS, VP, Do)
         scene_cond = self.adapt_conditions(nobs_features) # (BS, VP, hidden_size)
         state_traj = torch.zeros(size=(B, T, Da), device=device, dtype=dtype)
-        state_traj[:,:To,:] = this_nobs['obs']['agent_pos']
+        state_traj[:,:To,:] = this_nobs['agent_pos']
         action_mask = self.action_mask.expand(B, -1, -1).to(device=device)
 
         # run sampling
@@ -260,37 +323,45 @@ class VODPPlusDit(BasePolicy, PreTrainedModel, ModuleAttrMixin):
     def set_normalizer(self, normalizer: LinearNormalizer):
         self.normalizer.load_state_dict(normalizer.state_dict())
 
+    def sample_time(self, batch_size, device, dtype):
+        sample = self.beta_dist.sample([batch_size]).to(device, dtype=dtype)
+        return (self.noise_s - sample) / self.noise_s
+
     def compute_loss(self, batch):
         # normalize input
         assert 'valid_mask' not in batch
         nobs = self.normalizer.normalize(batch['obs'])
-        nactions = self.normalizer['action'].normalize(batch['action'])
-        batch_size = nactions.shape[0]
-        horizon = nactions.shape[1]
+        actions = self.normalizer['action'].normalize(batch['action'])
+        batch_size = actions.shape[0]
+        horizon = actions.shape[1]
 
         # handle different ways of passing observation
         # reshape B, T, ... to B*T
         this_nobs = dict_apply(nobs, lambda x: x[:,:self.n_obs_steps,...].reshape(-1,*x.shape[2:]))
         nobs_features = self.obs_encoder(this_nobs) # (BS, VP, Do)
         scene_cond = self.adapt_conditions(nobs_features) # (BS, VP, hidden_size)
-        state_traj = nactions
+        state_traj = actions
         action_mask = self.action_mask.expand(batch_size, -1, -1).to(device=state_traj.device)
 
         # Sample noise that we'll add to the images
-        noise = torch.randn(state_traj.shape, device=state_traj.device)
+        noise = torch.randn(actions.shape, device=actions.device)
         # Sample a random timestep for each image
-        timesteps = torch.randint(
-            0, self.noise_scheduler.config.num_train_timesteps, 
-            (batch_size,), device=nactions.device
-        ).long()
+        t = self.sample_time(
+            actions.shape[0],
+            device=actions.device,
+            dtype=actions.dtype
+        )
+        t = t[:, None, None]  # shape (B,1,1) for broadcast
+        # Convert (continuous) t -> discrete if needed
+        timesteps = (t[:, 0, 0] * self.num_timestep_buckets).long() # shape (B,)
+        
         # Add noise to the clean images according to the noise magnitude at each timestep
         # (this is the forward diffusion process)
-        noisy_traj = self.noise_scheduler.add_noise(
-            state_traj, noise, timesteps)
+        noisy_traj = (1 - t) * noise + t * actions
+        velocity = actions - noise
         
         # compute loss mask
         cond_mask = ~action_mask
-
         # apply conditioning
         noisy_traj[cond_mask] = state_traj[cond_mask]
         state_noisy_tokens = self.state_adaptor(noisy_traj)
@@ -298,15 +369,7 @@ class VODPPlusDit(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         # Predict the noise residual
         pred = self.model(state_noisy_tokens, timesteps, scene_cond)
 
-        pred_type = self.noise_scheduler.config.prediction_type 
-        if pred_type == 'epsilon':
-            target = noise
-        elif pred_type == 'sample':
-            target = state_traj
-        else:
-            raise ValueError(f"Unsupported prediction type {pred_type}")
-
-        loss = F.mse_loss(pred, target, reduction='none')
+        loss = F.mse_loss(pred, velocity, reduction='none')
         loss = loss * action_mask.type(loss.dtype)
         loss = reduce(loss, 'b ... -> b (...)', 'mean')
         loss = loss.mean()
