@@ -180,7 +180,7 @@ class VGGTEncoder(Aggregator):
             'image_tokens':patch_tokens,
             'image_tokens_pos':patch_pos,
             'camera_tokens_list': {
-                idx: aggregated_tokens_list[idx][...,0:1,:]
+                idx: aggregated_tokens_list[idx][...,0,:]
                 for idx in self.intermediate_layer_idx
             }, 
             'spatial_tokens_pos': patch_pos,

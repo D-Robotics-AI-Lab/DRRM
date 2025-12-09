@@ -111,7 +111,7 @@ class VODPPRunner(BaseRunner):
         with torch.no_grad():
             obs_dict_input = {}  # flush unused keys
             obs_dict_input["head_cam"] = obs_dict["head_cam"].unsqueeze(0)
-            # obs_dict_input['front_cam'] = obs_dict['front_cam'].unsqueeze(0)
+            obs_dict_input['front_cam'] = obs_dict['front_cam'].unsqueeze(0)
             obs_dict_input["left_cam"] = obs_dict["left_cam"].unsqueeze(0)
             obs_dict_input["right_cam"] = obs_dict["right_cam"].unsqueeze(0)
             obs_dict_input["agent_pos"] = obs_dict["agent_pos"].unsqueeze(0)

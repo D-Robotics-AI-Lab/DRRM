@@ -245,6 +245,16 @@ class EmVisRM(nn.Module):
                 for idx in self.intermediate_layer_idx
             ]  # [len(layer_idx), B * S, V, P, D_scene]
             spatial_tokens_list = torch.stack(spatial_tokens_list, dim=0)
+            camera_tokens_list = vggt_token_dict.get('camera_tokens_list', None)
+            if camera_tokens_list != None:
+                camera_tokens_list = [
+                    camera_tokens_list[idx]
+                    for idx in self.intermediate_layer_idx
+                ]  # [len(layer_idx), B * S, V, D_camera]
+                camera_tokens = camera_tokens_list[-1]
+            else:
+                camera_tokens = None
+
             
             if self.view_as_seq:
                 L, BS, V, P, D = spatial_tokens_list.shape
@@ -273,7 +283,7 @@ class EmVisRM(nn.Module):
                 ) # [B * S, V, P, D_out]
                 scene_pos = spatial_pos
         else:
-        ### spatial_tokens_list -> PMHEAD -> scene_tokens (3D fusion)
+            ### spatial_tokens_list -> PMHEAD -> scene_tokens (3D fusion)
             spatial_tokens_list = vggt_token_dict['spatial_tokens_list']
             # scene_tokens = spatial_tokens_list[-1]
             scene_tokens, pts3d, pts3d_conf = self.vggt_heads.point_head(
@@ -296,14 +306,15 @@ class EmVisRM(nn.Module):
         
         ### scene_tokens -> Multi-View ADAPTER -> scene_features (multi-view fusion)
         if self.mv_fuser != None:
-            scene_tokens = self.mv_fuser(scene_tokens, scene_pos)
+            scene_tokens = self.mv_fuser(scene_tokens, scene_pos, camera_tokens)
+            scene_pos = scene_pos[:,0:1,...] # [B, 1, P, 2]
 
         ### scene_tokens -> MODEL ADAPTER -> scene_features (VA/VLA visual input alignment)
         scene_features = scene_tokens # defalut
         if self.model_adapter != None:
             adapter_input = {
                 'x': scene_tokens,
-                'xpos': spatial_pos,
+                'xpos': scene_pos,
                 'y': None,
                 'ypos': None,
             }
