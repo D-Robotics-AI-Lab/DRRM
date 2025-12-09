@@ -128,6 +128,7 @@ class VODPPlusDitFlowMatching(BasePolicy, PreTrainedModel, ModuleAttrMixin):
                 scene_pos_embed_config=scene_pos_embed_config
             )
         elif config.block_type.lower() == 'nostateblock':
+            from .diffusion.conditional_largedit_head import LargeDiT
             self.model = LargeDiT(
                 output_dim=action_dim,
                 horizon=horizon,
@@ -148,7 +149,7 @@ class VODPPlusDitFlowMatching(BasePolicy, PreTrainedModel, ModuleAttrMixin):
                 hidden_size=hidden_size,
                 depth=config.depth,
                 num_heads=config.num_heads,
-                action_only=True,
+                self_attn_first=False,
                 scene_cond_len=scene_cond_len,
                 scene_pos_embed_config=scene_pos_embed_config
             )

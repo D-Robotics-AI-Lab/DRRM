@@ -14,10 +14,9 @@ from collections import OrderedDict
 import torch
 import torch.nn as nn
 
-from .blocks import (FinalLayer, InvBlock, TimestepEmbedder,
+from .blocks import (FinalLayer, Block, InvBlock, TimestepEmbedder,
                                get_1d_sincos_pos_embed_from_grid,
                                get_multimodal_cond_pos_embed)
-
 
 class VADiT(nn.Module):
     """
@@ -31,7 +30,7 @@ class VADiT(nn.Module):
         hidden_size=1152,
         depth=28,
         num_heads=16,
-        self_attn_first=True,
+        self_attn_first=False,
         scene_cond_len=4096, # S * V * P
         scene_pos_embed_config=None, # S, V, P
         dtype=torch.bfloat16
@@ -57,7 +56,10 @@ class VADiT(nn.Module):
             torch.zeros(1, scene_cond_len, hidden_size))
         
         self.blocks = nn.ModuleList([
-            InvBlock(hidden_size, num_heads, self_attn_first) for _ in range(depth)
+            Block(hidden_size, num_heads, self_attn_first) for _ in range(depth)
+        ])
+        self.invblocks = nn.ModuleList([
+            InvBlock(hidden_size, num_heads, self_attn_first) for _ in range(4)
         ])
         self.final_layer = FinalLayer(hidden_size, output_dim)
         self.initialize_weights()
@@ -127,11 +129,15 @@ class VADiT(nn.Module):
         scene_c = scene_c + self.scene_cond_pos_embed
 
         # Forward pass
+        ax = x[:,~self.state_mask,...]
+        c, mask = scene_c, scene_mask
         for i, block in enumerate(self.blocks):
-            c, mask = scene_c, scene_mask
-            x = block(x, c, mask, self.state_mask)                       # (B, T+1, D)
+            ax = block(ax, c, mask) # (B, T+1, D)
+        x[:,~self.state_mask,...] = ax
+        for i, block in enumerate(self.invblocks):
+            x = block(x, c, mask) # (B, T+1, D)
         # Inject the language condition at the final layer
-        x = self.final_layer(x)                         # (B, T+1, out_channels)
+        x = self.final_layer(x) # (B, T+1, out_channels)
 
         # Only preserve the action tokens
         x = x[:, -self.horizon:]

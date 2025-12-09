@@ -274,12 +274,11 @@ class InvBlock(nn.Module):
             qkv_bias=True, qk_norm=True, 
             norm_layer=RmsNorm,**block_kwargs)
         
-        self.norm2 = RmsNorm(hidden_size, eps=1e-6)
         approx_gelu = lambda: nn.GELU(approximate="tanh")
         self.ffn = Mlp(in_features=hidden_size, 
             hidden_features=hidden_size, 
             act_layer=approx_gelu, drop=0)
-        self.norm3 = RmsNorm(hidden_size, eps=1e-6)
+        self.norm2 = RmsNorm(hidden_size, eps=1e-6)
 
     def forward(self, x, c, mask=None):
         origin_x = x
@@ -288,7 +287,7 @@ class InvBlock(nn.Module):
         x = x + origin_x
 
         origin_x = x
-        x = self.norm3(x)
+        x = self.norm2(x)
         x = self.ffn(x)
         x = x + origin_x
 
