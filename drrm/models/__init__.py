@@ -4,3 +4,4 @@ from .policy.vodp.vodp import VODP, VODPConfig, VODPEncoder
 from .policy.vodpp.unet_policy import VODPPlusUnet, VODPPlusUnetConfig, VODPPlusEncoder
 from .policy.vodpp.dit_ddpm_policy import VODPPlusDitDDPM, VODPPlusDitDDPMConfig, VODPPlusEncoder
 from .policy.vodpp.dit_fm_policy import VODPPlusDitFlowMatching, VODPPlusDitFlowMatchingConfig, VODPPlusEncoder
+from .policy.var0.var_policy import VAR0, VAR0Config, VODPPlusEncoder
