@@ -15,8 +15,8 @@ from .vision.obs_encoder import SceneEncoder as VODPPlusEncoder
 from .common.normalizer import LinearNormalizer
 from .common.pytorch_util import dict_apply
 from .common.module_attr_mixin import ModuleAttrMixin
-from .diffusion.conditional_dit_planner import DiTPlanner, Solver
-from .diffusion.blocks import InvBlock
+from .diffusion.conditional_dit_planner import DiTPlanner
+from .emvis.solver import Solver
 
 import yaml
 import json
@@ -29,20 +29,22 @@ class VAR0Config(PretrainedConfig):
     shape_meta: dict
     noise_scheduler: dict
     obs_encoder: VODPPlusEncoder
+    scene_adaptor: str
     hidden_size: int
     depth: int
     num_heads: int
     horizon: int
     n_action_steps: int
     n_obs_steps: int
-    obs_as_global_cond: bool = True
-    diffusion_step_embed_dim: int = 256
-    down_dims: tuple = (256,512,1024)
-    kernel_size: int = 5
-    n_groups: int = 8
-    cond_predict_scale: bool = True
+    # obs_as_global_cond: bool = True
+    # diffusion_step_embed_dim: int = 256
+    # down_dims: tuple = (256,512,1024)
+    # kernel_size: int = 5
+    # n_groups: int = 8
+    # cond_predict_scale: bool = True
     self_attn_first: bool = True
-    block_type: str = ''
+    # block_type: str = ''
+    solver_residual: bool = False
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -85,6 +87,7 @@ class VAR0(BasePolicy, PreTrainedModel, ModuleAttrMixin):
             config.noise_scheduler['noise_beta_beta']
         )
         self.noise_s = config.noise_scheduler['noise_s']
+        self.prediction_type = config.noise_scheduler.get('prediction_type', 'velocity')
         
         self.obs_encoder = hydra.utils.instantiate(config.obs_encoder)
 
@@ -98,58 +101,58 @@ class VAR0(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         action_dim = action_shape[0]
         # get feature dim
         V, H, W, dim = self.obs_encoder.output_shape_meta() # V, H, W, D
+        num_patches = H * W
         obs_feature_dim = dim
         action_mask = torch.zeros(1, horizon, action_dim).bool()
         action_mask[:,n_obs_steps:,:] = True
+        cond_mask = torch.zeros(horizon, V * num_patches).bool()
+        cond_mask[:n_obs_steps,:] = True
+        cond_mask = cond_mask.view(-1)
 
-        # create diffusion model
-        num_patches = H * W
-        scene_cond_len = (config.n_obs_steps * V * num_patches)
-        scene_pos_embed_config = [("image", (config.n_obs_steps, V, num_patches)),]
+        # self.scene_adaptor = self.build_condition_adapter(
+        #     config.scene_adaptor, 
+        #     in_features=obs_feature_dim, 
+        #     out_features=hidden_size
+        # )
+
+        # create diffusion planner
+        
+        gen_steps, cond_steps = horizon-config.n_obs_steps, config.n_obs_steps
+        scene_gen_len = gen_steps * V * num_patches
+        scene_gen_pe_config = [("image", (gen_steps, V, num_patches)),]
+        scene_cond_len = (cond_steps * V * num_patches)
+        scene_cond_pe_config = [("image", (cond_steps, V, num_patches)),]
 
         self.planner = DiTPlanner(
-            horizon=horizon,
             hidden_size=hidden_size,
             depth=config.depth,
             num_heads=config.num_heads,
             self_attn_first=config.self_attn_first,
-            scene_cond_len=scene_cond_len,
-            scene_pos_embed_config=scene_pos_embed_config
-        )
-        # TODO: IKSolver: 1. Inverse block; 2. ffn based action encoder; 3. ffn based action decoder;
-        # forward: scene tokens -> Inverse block -> ffn based action decoder -> action
-        self.solver = nn.ModuleList([
-            InvBlock(hidden_size, config.num_heads, config.self_attn_first) for _ in range(4)
-        ])
-
-        self.scene_adaptor = self.build_condition_adapter(
-            config.scene_adaptor, 
-            in_features=obs_feature_dim, 
-            out_features=hidden_size
+            gen_len=scene_gen_len,
+            gen_pe_config=scene_gen_pe_config,
+            cond_len=scene_cond_len,
+            cond_pe_config=scene_cond_pe_config
         )
 
-        # A `state` refers to an action or a proprioception vector
-        self.state_adaptor = self.build_condition_adapter(
-            config.state_adaptor, 
-            in_features=action_dim,    # state + state mask (indicator)
-            out_features=hidden_size
+        # create robot solver
+        self.solver = Solver(
+            hidden_size=hidden_size,
+            action_dim=action_dim,
+            shape_in=(H, W),
+            residual=config.solver_residual,
         )
 
-        # self.mask_generator = LowdimMaskGenerator(
-        #     action_dim=action_dim,
-        #     obs_dim=0 if obs_as_global_cond else obs_feature_dim,
-        #     max_n_obs_steps=n_obs_steps,
-        #     fix_obs_steps=True,
-        #     action_visible=False
-        # )
         self.normalizer = LinearNormalizer()
         # self.normalizer = None
         self.horizon = horizon
         self.obs_feature_dim = obs_feature_dim
+        self.gen_steps = gen_steps
+        self.cond_steps = cond_steps
         self.action_dim = action_dim
         self.n_action_steps = n_action_steps
         self.n_obs_steps = n_obs_steps
         self.action_mask = action_mask
+        self.cond_mask = cond_mask
         # self.kwargs = kwargs
         self.kwargs = {} #
 
@@ -184,7 +187,7 @@ class VAR0(BasePolicy, PreTrainedModel, ModuleAttrMixin):
     
     # ========= inference  ============
     def conditional_sample(
-            self, scene_cond, state_traj, action_mask, **kwargs
+            self, cond, **kwargs
         ) -> torch.Tensor:
         '''
         scene_cond: image conditional data, (batch_size, patch_num, hidden_size).
@@ -192,11 +195,11 @@ class VAR0(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         
         return: (batch_size, horizon, action_dim)
         '''
-        device = state_traj.device
-        dtype = state_traj.dtype
-        batch_size = state_traj.shape[0]
-        noisy_action = torch.randn(
-            size=(batch_size, self.horizon, self.action_dim), 
+        device = cond.device
+        dtype = cond.dtype
+        batch_size = cond.shape[0]
+        noisy_scene = torch.randn(
+            size=(batch_size, (~self.cond_mask).sum(), self.obs_feature_dim), 
             dtype=dtype, device=device
         )
 
@@ -204,28 +207,20 @@ class VAR0(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         num_steps = self.num_inference_timesteps
         dt = 1.0 / num_steps
 
-        state_mask = ~action_mask
         for t in range(num_steps):
             # timesteps = t.unsqueeze(-1).to(device)
             t_discretized = int(t / float(num_steps) * self.num_timestep_buckets)
             timesteps = torch.full(
                 size=(batch_size,), fill_value=t_discretized, device=device
             )
-            # Prepare state-action trajectory
-            noisy_action[state_mask] = state_traj[state_mask]
-            state_action_traj = self.state_adaptor(noisy_action)
-            
             # Predict the model output
-            pred_velocity = self.model(state_action_traj, timesteps, scene_cond)
+            pred_velocity = self.planner(noisy_scene, timesteps, cond)
             
             # Compute previous actions: x_t -> x_t-1
-            noisy_action = noisy_action + dt * pred_velocity
-            # noisy_action = noisy_action.to(state_traj.dtype)
-        
-        # Finally apply the action mask to mask invalid action dimensions
-        noisy_action[state_mask] = state_traj[state_mask]
+            noisy_scene = noisy_scene + dt * pred_velocity
+            # noisy_scene = noisy_scene.to(state_traj.dtype)
 
-        return noisy_action
+        return noisy_scene
 
     @torch.no_grad()
     def predict_action(self, obs_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
@@ -243,26 +238,29 @@ class VAR0(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         T = self.horizon
         Da = self.action_dim
         Do = self.obs_feature_dim
-        To = self.n_obs_steps
+        To = self.cond_steps
 
         # build input
         device = self.device
         dtype = self.dtype
+        cond_mask = self.cond_mask.to(device=device)
 
         # handle different ways of passing observation
         # condition through global feature
         this_nobs = dict_apply(nobs, lambda x: x[:,:To,...].reshape(-1,*x.shape[2:]))
-        nobs_features = self.obs_encoder(this_nobs) # (BS, VP, Do)
-        scene_cond = self.adapt_conditions(nobs_features) # (BS, VP, hidden_size)
-        state_traj = torch.zeros(size=(B, T, Da), device=device, dtype=dtype)
-        state_traj[:,:To,:] = this_nobs['agent_pos']
-        action_mask = self.action_mask.expand(B, -1, -1).to(device=device)
+        nobs_features = self.obs_encoder(this_nobs) # (B*To, V*P, Do)
+
+        scene_flow = torch.zeros(size=(B, len(cond_mask), Do), device=device, dtype=dtype)
+        scene_flow[:,cond_mask,:] = nobs_features.view(B, -1, Do)
+        
 
         # run sampling
-        nsample = self.conditional_sample(scene_cond, state_traj, action_mask)
+        nsample = self.conditional_sample(scene_flow[:,cond_mask,:])
+        scene_flow[:,~cond_mask,:] = nsample
         
         # unnormalize prediction
-        naction_pred = nsample[...,:Da]
+        scene_flow = scene_flow.view(B * T, -1, Do)
+        naction_pred = self.solver(scene_flow).view(B, T, Da)
         action_pred = self.normalizer['action'].unnormalize(naction_pred)
 
         # get action
@@ -297,18 +295,21 @@ class VAR0(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         # this_nobs = dict_apply(nobs, lambda x: x[:,:self.n_obs_steps,...].reshape(-1,*x.shape[2:]))
         this_nobs = dict_apply(nobs, lambda x: x.reshape(-1,*x.shape[2:]))
         nobs_features = self.obs_encoder(this_nobs) # (BS, VP, Do)
+        nobs_features = nobs_features.view(batch_size, -1, nobs_features.shape[-1]) # (B, SVP, Do)
         
-        scene_cond = self.adapt_conditions(nobs_features) # (BS, VP, hidden_size)
-        state_traj = actions
-        action_mask = self.action_mask.expand(batch_size, -1, -1).to(device=state_traj.device)
-
+        scene_flow = nobs_features
+        cond_mask = self.cond_mask.to(device=scene_flow.device)
+        x = scene_flow[:,~cond_mask,...]
+        cond = scene_flow[:,cond_mask,...]
+        
         # Sample noise that we'll add to the images
-        noise = torch.randn(actions.shape, device=actions.device)
+        noise = torch.randn(x.shape, device=x.device)
+        # noise = torch.randn(actions.shape, device=actions.device)
         # Sample a random timestep for each image
         t = self.sample_time(
-            actions.shape[0],
-            device=actions.device,
-            dtype=actions.dtype
+            batch_size,
+            device=noise.device,
+            dtype=noise.dtype
         )
         t = t[:, None, None]  # shape (B,1,1) for broadcast
         # Convert (continuous) t -> discrete if needed
@@ -316,20 +317,43 @@ class VAR0(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         
         # Add noise to the clean images according to the noise magnitude at each timestep
         # (this is the forward diffusion process)
-        noisy_traj = (1 - t) * noise + t * actions
-        velocity = actions - noise
+        noisy_x = (1 - t) * noise + t * x
         
-        # compute loss mask
-        cond_mask = ~action_mask
-        # apply conditioning
-        noisy_traj[cond_mask] = state_traj[cond_mask]
-        state_noisy_tokens = self.state_adaptor(noisy_traj)
-        
-        # Predict the noise residual
-        pred = self.model(state_noisy_tokens, timesteps, scene_cond)
+        dim = scene_flow.shape[-1]
+        if self.prediction_type == 'velocity':
+            velocity = x - noise
+            pred_velocity = self.planner(noisy_x, timesteps, cond) # (B, gen_len*V*P, hidden_size)
+            gen_loss = F.mse_loss(pred_velocity, velocity, reduction='none')
+            gen_loss = reduce(gen_loss, 'b ... -> b (...)', 'mean').mean()
 
-        loss = F.mse_loss(pred, velocity, reduction='none')
-        loss = loss * action_mask.type(loss.dtype)
-        loss = reduce(loss, 'b ... -> b (...)', 'mean')
-        loss = loss.mean()
-        return loss
+            scene_flow = scene_flow.view(batch_size * horizon, -1, dim)
+            pred = self.solver(scene_flow).view(batch_size, horizon, -1)
+            inv_loss = F.mse_loss(pred, actions, reduction='none')
+            inv_loss = reduce(inv_loss, 'b ... -> b (...)', 'mean').mean()
+            loss = inv_loss + gen_loss
+        elif self.prediction_type == 'velgt':
+            velocity = x - noise
+            pred_velocity = self.planner(noisy_x, timesteps, cond) # (B, gen_len*V*P, hidden_size)
+            gen_loss = F.mse_loss(pred_velocity, velocity, reduction='none')
+            gen_loss = reduce(gen_loss, 'b ... -> b (...)', 'mean').mean()
+
+            scene_flow[:,~cond_mask,...] = pred_velocity + noise
+            scene_flow = scene_flow.view(batch_size * horizon, -1, dim)
+            pred = self.solver(scene_flow).view(batch_size, horizon, -1)
+            inv_loss = F.mse_loss(pred, actions, reduction='none')
+            inv_loss = reduce(inv_loss, 'b ... -> b (...)', 'mean').mean()
+            loss = inv_loss + gen_loss
+        else:
+            pred_velocity = self.planner(noisy_x, timesteps, cond) # (B, gen_len*V*P, hidden_size)
+            pred = (noise + pred_velocity).view(batch_size * self.gen_steps, -1, dim)
+            pred = self.solver(pred).view(batch_size, self.gen_steps, -1)
+            gen_loss = F.mse_loss(pred, actions[:,~cond_mask,...], reduction='none')
+            gen_loss = reduce(gen_loss, 'b ... -> b (...)', 'mean').mean()
+
+            scene_flow = scene_flow.view(batch_size * horizon, -1, dim)
+            pred = self.solver(scene_flow).view(batch_size, horizon, -1)
+            inv_loss = F.mse_loss(pred, actions, reduction='none')
+            inv_loss = reduce(inv_loss, 'b ... -> b (...)', 'mean').mean()
+            loss = inv_loss + gen_loss
+
+        return {'loss': loss, 'inv_loss': inv_loss, 'gen_loss': gen_loss}

@@ -411,6 +411,7 @@ def get_nd_sincos_pos_embed_from_grid(embed_dim, grid_sizes):
     num_sizes = len(grid_sizes)
     # For grid size of 1, we do not need to add any positional embedding
     num_valid_sizes = len([x for x in grid_sizes if x > 1])
+    if num_valid_sizes == 0: num_valid_sizes=1
     emb = np.zeros(grid_sizes + (embed_dim,))
     # Uniformly divide the embedding dimension for each grid size
     dim_for_each_grid = embed_dim // num_valid_sizes

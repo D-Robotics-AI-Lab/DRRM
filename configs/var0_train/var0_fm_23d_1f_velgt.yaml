@@ -16,9 +16,11 @@ shape_meta:
       type: low_dim
       
 mixed_precision: "bf16"
-output_dir: "checkpoints/var0_${train_dataset.task}_${train_dataset.demo}_fm_23d_1f"
+output_dir: "checkpoints/var0_${train_dataset.task}_${train_dataset.demo}_fm_23d_1f_velgt"
 
 model:
+  noise_scheduler:
+    prediction_type: velgt
   obs_encoder:
     state_key: null
     # rgb_key: ["head_cam", "front_cam"]

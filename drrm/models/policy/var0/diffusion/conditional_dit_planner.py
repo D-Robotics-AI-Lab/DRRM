@@ -26,31 +26,35 @@ class DiTPlanner(nn.Module):
     def __init__(
         self,
         # output_dim: int,
-        horizon: int,
-        hidden_size=1152,
-        depth=28,
+        # horizon: int,
+        hidden_size=1024,
+        depth=8,
         num_heads=16,
-        self_attn_first=True,
-        scene_cond_len=4096, # S * V * P
-        scene_pos_embed_config=None, # S, V, P
+        self_attn_first=False,
+        gen_len=4096, # S * V * P
+        gen_pe_config=None, # S, V, P
+        cond_len=4096, # S * V * P
+        cond_pe_config=None, # S, V, P
         dtype=torch.bfloat16
     ):
         super().__init__()
-        self.horizon = horizon
+        # self.horizon = horizon
         self.hidden_size = hidden_size
-        self.scene_cond_len = scene_cond_len
+        self.gen_len = gen_len
+        self.gen_pe_config = gen_pe_config
+        self.cond_len = cond_len
+        self.cond_pe_config = cond_pe_config
         self.dtype = dtype
-        self.scene_pos_embed_config = scene_pos_embed_config
 
         self.t_embedder = TimestepEmbedder(hidden_size, dtype=dtype)
         
         # We will use trainable sin-cos embeddings
         # [timestep; state; action]
-        self.x_pos_embed = nn.Parameter(
-            torch.zeros(1, horizon+1, hidden_size))
+        self.gen_pos_embed = nn.Parameter(
+            torch.zeros(1, gen_len+1, hidden_size))
         # Image conditions
-        self.scene_cond_pos_embed = nn.Parameter(
-            torch.zeros(1, scene_cond_len, hidden_size))
+        self.cond_pos_embed = nn.Parameter(
+            torch.zeros(1, cond_len, hidden_size))
         
         self.blocks = nn.ModuleList([
             Block(hidden_size, num_heads, self_attn_first) for _ in range(depth)
@@ -68,22 +72,21 @@ class DiTPlanner(nn.Module):
         self.apply(_basic_init)
 
         # Initialize pos_embed by sin-cos embedding
-        x_pos_embed = get_multimodal_cond_pos_embed(
+        gen_pos_embed = get_multimodal_cond_pos_embed(
             embed_dim=self.hidden_size,
             mm_cond_lens=OrderedDict([
                 ('timestep', 1),
-                ('action', self.horizon),
+                *self.gen_pe_config,
             ])
         )
-        self.x_pos_embed.data.copy_(torch.from_numpy(x_pos_embed).float().unsqueeze(0))
+        self.gen_pos_embed.data.copy_(torch.from_numpy(gen_pos_embed).float().unsqueeze(0))
 
-        scene_cond_pos_embed = get_multimodal_cond_pos_embed(
+        cond_pos_embed = get_multimodal_cond_pos_embed(
             embed_dim=self.hidden_size,
-            mm_cond_lens=OrderedDict(self.scene_pos_embed_config),
+            mm_cond_lens=OrderedDict(self.cond_pe_config),
             embed_modality=False
         )
-        self.scene_cond_pos_embed.data.copy_(
-            torch.from_numpy(scene_cond_pos_embed).float().unsqueeze(0))
+        self.cond_pos_embed.data.copy_(torch.from_numpy(cond_pos_embed).float().unsqueeze(0))
 
         # Initialize timestep embedding MLP
         nn.init.normal_(self.t_embedder.mlp[0].weight, std=0.02)
@@ -96,7 +99,7 @@ class DiTPlanner(nn.Module):
         # Move all the params to given data type:
         self.to(self.dtype)
 
-    def forward(self, x, t, scene_c, scene_mask=None):
+    def forward(self, x, t, cond, cond_mask=None):
         """
         Forward pass of RDT.
         
@@ -118,17 +121,13 @@ class DiTPlanner(nn.Module):
         x = torch.cat([t, x], dim=1)               # (B, T, D)
         
         # Add multimodal position embeddings
-        x = x + self.x_pos_embed
+        x = x + self.gen_pos_embed
         # Note the lang is of variable length
-        scene_c = scene_c + self.scene_cond_pos_embed
+        cond = cond + self.cond_pos_embed
 
         # Forward pass
         for i, block in enumerate(self.blocks):
-            c, mask = scene_c, scene_mask
+            c, mask = cond, cond_mask
             x = block(x, c, mask)                       # (B, T+1, D)
-        # Inject the language condition at the final layer
-        x = self.final_layer(x)                         # (B, T+1, out_channels)
 
-        # Only preserve the action tokens
-        x = x[:, -self.horizon:]
-        return x
+        return x[:, 1:, :]

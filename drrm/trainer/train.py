@@ -322,6 +322,9 @@ def train(args, logger):
     for batch in train_dataloader:
         with accelerator.accumulate(policy_model):
             loss = policy_model(batch)
+            if isinstance(loss, dict):
+                loss_for_log = loss
+                loss = loss.pop("loss")
 
             accelerator.backward(loss)
             if accelerator.sync_gradients:

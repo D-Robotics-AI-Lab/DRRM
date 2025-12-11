@@ -15,7 +15,7 @@ from drrm.models.base_policy import BasePolicy
 from drrm.models.base_runner import BaseRunner, load_policy
 
 
-class VODPPRunner(BaseRunner):
+class VAR0Runner(BaseRunner):
 
     def __init__(
         self,
