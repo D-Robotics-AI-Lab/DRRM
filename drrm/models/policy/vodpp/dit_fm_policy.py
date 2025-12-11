@@ -341,6 +341,7 @@ class VODPPlusDitFlowMatching(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         this_nobs = dict_apply(nobs, lambda x: x[:,:self.n_obs_steps,...].reshape(-1,*x.shape[2:]))
         nobs_features = self.obs_encoder(this_nobs) # (BS, VP, Do)
         scene_cond = self.adapt_conditions(nobs_features) # (BS, VP, hidden_size)
+        scene_cond = scene_cond.view(batch_size, -1, scene_cond.shape[-1]) # (B, SVP, hidden_size)
         state_traj = actions
         action_mask = self.action_mask.expand(batch_size, -1, -1).to(device=state_traj.device)
 
