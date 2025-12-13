@@ -305,7 +305,7 @@ class VAR0(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         
         scene_flow = nobs_features
         cond_mask = self.cond_mask.to(device=scene_flow.device)
-        x = scene_flow[:,~cond_mask,...]
+        x = scene_flow
         cond = scene_flow[:,cond_mask,...]
         
         # Sample noise that we'll add to the images
@@ -326,57 +326,44 @@ class VAR0(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         noisy_x = (1 - t) * noise + t * x
         
         dim = scene_flow.shape[-1]
-        if self.prediction_type == 'velocity':
+        if self.prediction_type == 'velocity_gen':
+            # compute generated frames velocity loss
             velocity = x - noise
             pred_velocity = self.planner(noisy_x, timesteps, cond) # (B, gen_len*V*P, hidden_size)
-            gen_loss = F.mse_loss(pred_velocity, velocity)
-
-            scene_flow = scene_flow.view(batch_size * horizon, -1, dim)
-            pred = self.solver(scene_flow).view(batch_size, horizon, -1)
-            inv_loss = F.mse_loss(pred, actions)
-            loss = inv_loss + gen_loss
-        elif self.prediction_type == 'velgt':
-            velocity = x - noise
-            pred_velocity = self.planner(noisy_x, timesteps, cond) # (B, gen_len*V*P, hidden_size)
-            gen_loss = F.mse_loss(pred_velocity, velocity)
-
-            scene_flow[:,~cond_mask,...] = pred_velocity + noise
-            scene_flow = scene_flow.view(batch_size * horizon, -1, dim)
-            pred = self.solver(scene_flow).view(batch_size, horizon, -1)
-            inv_loss = F.mse_loss(pred, actions)
-            loss = inv_loss + gen_loss
-        elif self.prediction_type == 'scene_state':
-            pred = self.planner(noisy_x, timesteps, cond) # (B, gen_len*V*P, hidden_size)
+            pred_scene = noise + pred_velocity
+            ## gen_loss = F.mse_loss(pred_velocity, velocity)
             gen_loss = F.kl_div(
-                F.log_softmax(pred, dim=-1), 
+                F.log_softmax(pred_velocity, dim=-1), 
+                F.softmax(velocity, dim=-1), reduction='none'
+            )
+            gen_loss = gen_loss.sum(-1).mean()
+        elif self.prediction_type == 'state_gen':
+            # compute generated frames state loss
+            pred_scene = self.planner(noisy_x, timesteps, cond) # (B, gen_len*V*P, hidden_size)
+            gen_loss = F.kl_div(
+                F.log_softmax(pred_scene, dim=-1), 
                 F.softmax(x, dim=-1), reduction='none'
             )
             gen_loss = gen_loss.sum(-1).mean()
-
-            scene_flow[:,~cond_mask,...] = pred
-            scene_flow = scene_flow.view(batch_size * horizon, -1, dim)
-            pred = self.solver(scene_flow).view(batch_size, horizon, -1)
-            inv_loss = F.mse_loss(pred, actions)
-            loss = inv_loss + gen_loss
-        elif self.prediction_type == 'action_state':
+        elif self.prediction_type == 'state':
+            # compute generated frames state loss
             pred_scene = self.planner(noisy_x, timesteps, cond) # (B, gen_len*V*P, hidden_size)
-            pred_scene = pred_scene.reshape(batch_size * self.gen_steps, -1, dim)
-            pred = self.solver(pred_scene).view(batch_size, self.gen_steps, -1)
-            gen_loss = F.mse_loss(pred, actions[:,~cond_mask,...])
-
-            scene_flow = scene_flow.view(batch_size * horizon, -1, dim)
-            pred = self.solver(scene_flow).view(batch_size, horizon, -1)
-            inv_loss = F.mse_loss(pred, actions)
-            loss = inv_loss + gen_loss
-        else:
+            gen_loss = 0
+        else: 
+            # compute generated frames velocity loss
             pred_velocity = self.planner(noisy_x, timesteps, cond) # (B, gen_len*V*P, hidden_size)
-            pred = (noise + pred_velocity).view(batch_size * self.gen_steps, -1, dim)
-            pred = self.solver(pred).view(batch_size, self.gen_steps, -1)
-            gen_loss = F.mse_loss(pred, actions[:,~cond_mask,...])
+            pred_scene = noise + pred_velocity
+            gen_loss = 0
 
-            scene_flow = scene_flow.view(batch_size * horizon, -1, dim)
-            pred = self.solver(scene_flow).view(batch_size, horizon, -1)
-            inv_loss = F.mse_loss(pred, actions)
-            loss = inv_loss + gen_loss
+        # compute generated frames inverse loss
+        pred_scene = pred_scene.reshape(batch_size * self.gen_steps, -1, dim)
+        pred = self.solver(pred_scene).view(batch_size, self.gen_steps, -1)
+        gen_inv_loss = F.mse_loss(pred, actions)
 
-        return {'loss': loss, 'inv_loss': inv_loss, 'gen_loss': gen_loss}
+        # compute directly inverse loss
+        scene_flow = scene_flow.view(batch_size * horizon, -1, dim)
+        pred = self.solver(scene_flow).view(batch_size, horizon, -1)
+        inv_loss = F.mse_loss(pred, actions)
+            
+        loss = inv_loss + gen_loss + gen_inv_loss
+        return {'loss': loss, 'inv_loss': inv_loss, 'gen_inv_loss': gen_inv_loss, 'gen_loss': gen_loss}
