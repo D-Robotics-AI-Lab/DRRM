@@ -37,6 +37,8 @@ def log_sample_res(policy_model, args, dataloader, logger):
             break
         
         loss = policy_model(batch)
+        if isinstance(loss, dict):
+            loss = loss.pop("loss")
         val_losses.append(loss.item())
         
     if len(val_losses) > 0:
@@ -250,7 +252,7 @@ def train(args, logger):
         power=args.lr_power,
     )
 
-    # Prepare everything with our `accelerator`.
+    # Prepare everything with `accelerator`.
     policy_model, optimizer, train_dataloader, val_dataloader, lr_scheduler = accelerator.prepare(
         policy_model, optimizer, train_dataloader, val_dataloader, lr_scheduler                   
     )
@@ -338,6 +340,7 @@ def train(args, logger):
         ema_model.step(accelerator.unwrap_model(policy_model))
 
         # Checks if the accelerator has performed an optimization step behind the scenes
+        logs = {}
         if accelerator.sync_gradients:
             progress_bar.update(1)
 
@@ -356,11 +359,12 @@ def train(args, logger):
                     val_dataloader,
                     logger,
                 )
-                logger.info(sample_loss_for_log)
-                accelerator.log(sample_loss_for_log, step=global_step)
+                # logger.info(sample_loss_for_log)
+                # accelerator.log(sample_loss_for_log, step=global_step)
+                loss_for_log.update({f"val_{k}": v for k, v in sample_loss_for_log.items()})
             global_step += 1
         
-        logs = {"loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
+        logs.update({"loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]})
         progress_bar.set_postfix(**logs)
         logs.update(loss_for_log)
         # logger.info(logs)

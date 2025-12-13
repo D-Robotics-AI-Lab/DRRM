@@ -1,8 +1,14 @@
 defaults:
   - var0
   - _self_
-n_obs_steps: 1
 
+checkpointing_period: 1000
+val_period: 500
+num_val_batches: 8
+num_train_epochs: 100
+learning_rate: 5e-4
+
+n_obs_steps: 1
 shape_meta:
   obs:
     head_cam:
@@ -16,11 +22,12 @@ shape_meta:
       type: low_dim
       
 mixed_precision: "bf16"
-output_dir: "checkpoints/var0_${train_dataset.task}_${train_dataset.demo}_fm_23d_1f_gt"
+output_dir: "checkpoints/var0_${train_dataset.task}_${train_dataset.demo}_fm_23d_1f_scene_state_light"
 
 model:
+  depth: 5
   noise_scheduler:
-    prediction_type: gt
+    prediction_type: scene_state
   obs_encoder:
     state_key: null
     # rgb_key: ["head_cam", "front_cam"]
@@ -47,6 +54,9 @@ model:
         target: ResNetAdapter
         shape_out: [1, 1]
         dim_out: 1024
-        conv_num: 5
+        conv_num: 3
         final_project: False
       mv_fuser_config: {}
+
+train_dataset:
+  val_ratio: 0.1

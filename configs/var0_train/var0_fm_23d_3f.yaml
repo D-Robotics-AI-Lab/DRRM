@@ -1,7 +1,7 @@
 defaults:
   - var0
   - _self_
-n_obs_steps: 1
+n_obs_steps: 3
 
 shape_meta:
   obs:
@@ -16,11 +16,9 @@ shape_meta:
       type: low_dim
       
 mixed_precision: "bf16"
-output_dir: "checkpoints/var0_${train_dataset.task}_${train_dataset.demo}_fm_23d_1f_gt"
+output_dir: "checkpoints/var0_${train_dataset.task}_${train_dataset.demo}_fm_23d_3f"
 
 model:
-  noise_scheduler:
-    prediction_type: gt
   obs_encoder:
     state_key: null
     # rgb_key: ["head_cam", "front_cam"]

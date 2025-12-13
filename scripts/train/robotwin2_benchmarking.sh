@@ -1,10 +1,17 @@
 #!/bin/bash
 config_dir=$1
 task=$2
+num_processes=$3
 demo=100
+
+num_flag=""
+if [ -n "$num_processes" ]; then
+    num_flag="--num_processes=$num_processes"
+fi
 
 accelerate launch\
     --config_file configs/accelerate_config.yaml \
+    $num_flag \
     main.py \
     --config-path="${config_dir%/*}" \
     --config-name="${config_dir##*/}" \

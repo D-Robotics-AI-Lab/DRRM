@@ -1,7 +1,7 @@
 defaults:
   - var0
   - _self_
-n_obs_steps: 3
+n_obs_steps: 1
 
 shape_meta:
   obs:
