@@ -1,0 +1,61 @@
+defaults:
+  - var0
+  - _self_
+
+checkpointing_period: 1000
+val_period: 500
+num_val_batches: 8
+num_train_epochs: 100
+
+n_obs_steps: 1
+shape_meta:
+  obs:
+    head_cam:
+      shape: ${image_shape}
+      type: rgb
+    front_cam:
+      shape: ${image_shape}
+      type: rgb
+    agent_pos:
+      shape: [14]
+      type: low_dim
+      
+mixed_precision: "bf16"
+output_dir: "checkpoints/var0_${train_dataset.task}_${train_dataset.demo}_fm_23d_1f_light_velocity_gen"
+
+model:
+  depth: 5
+  noise_scheduler:
+    prediction_type: velocity_gen
+  obs_encoder:
+    state_key: null
+    # rgb_key: ["head_cam", "front_cam"]
+    emvis_config:
+      dim_2d: null
+      dim_3d_keys: ['frame', 'global']
+      load_vggt_heads: true
+      load_vggt_pretrain: true
+      vggt_model_path: pretrained/VGGT-1B/model.pt
+      interpolate: 'bilinear'
+      mlp_ratio: 1.0
+      drop_p: 0.0
+      ft_heads: []
+      ft_layer_idx: []
+      intermediate_layer_idx: [23]
+      seq_as_view: False
+      only_first_view: True
+      injector_config:
+        fuse_2d: True
+        fuse_3d: False
+        ffn_layer_num: 1
+        dim_out: 1024
+      model_adapter_config:
+        target: ResNetAdapter
+        shape_out: [1, 1]
+        dim_out: 1024
+        conv_num: 3
+        final_project: False
+      mv_fuser_config: {}
+
+train_dataset:
+  val_ratio: 0.1

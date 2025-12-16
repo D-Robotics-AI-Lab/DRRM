@@ -38,9 +38,9 @@ class VAR0Runner(BaseRunner):
             self.policy = policy
         else:
             assert checkpoint_dir is not None, "Either policy or checkpoint_dir must be provided"
-            self.policy = load_policy(checkpoint_dir, use_ckp_code=False)
+            device = kwargs.get('device', 'cuda')
+            self.policy = load_policy(checkpoint_dir, use_ckp_code=False, device=device)
             self.policy.eval()
-            self.policy.to('cuda') if 'device' not in kwargs else self.policy.to(kwargs['device'])
         if mixed_precision == 'bf16':
             self.dtype = torch.bfloat16
         elif mixed_precision == 'fp16':

@@ -38,7 +38,7 @@ def log_sample_res(policy_model, args, dataloader, logger):
         
         loss = policy_model(batch)
         if isinstance(loss, dict):
-            loss = loss.pop("loss")
+            loss = loss.pop("gen_inv_loss")
         val_losses.append(loss.item())
         
     if len(val_losses) > 0:

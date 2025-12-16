@@ -16,7 +16,7 @@ shape_meta:
       type: low_dim
       
 mixed_precision: "bf16"
-output_dir: "checkpoints/var0_${train_dataset.task}_${train_dataset.demo}_fm_23d_1f_vel"
+output_dir: "checkpoints/var0_${train_dataset.task}_${train_dataset.demo}_fm_23d_1f_velocity"
 
 model:
   noise_scheduler:

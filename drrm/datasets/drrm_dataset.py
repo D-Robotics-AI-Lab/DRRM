@@ -82,6 +82,7 @@ class DRRMDataset(LeRobotDataset):
     """Enhanced LeRobot dataset with DRRM-specific features"""
     
     DEFAULT_KEYS = {'timestamp', 'frame_indx', 'episode_index', 'index', 'task_index', 'frame_index'}
+    FILTER_KEYS = {'timestamp', 'frame_indx', 'index'}
     
     def __init__(self, 
             repo_id: str,

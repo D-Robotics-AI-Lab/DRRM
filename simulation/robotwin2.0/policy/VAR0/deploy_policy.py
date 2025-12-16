@@ -39,8 +39,9 @@ def eval(TASK_ENV, model, observation):
     """
     obs = encode_obs(observation)
     instruction = TASK_ENV.get_instruction()
-    # if all([(model.obs[-1][k] == obs[k]).all() for k in model.obs[-1]]):
-    #     print("Warning: Redundant Observation Detected!")
+    if model.obs and all([(model.obs[-1][k] == obs[k]).all() for k in model.obs[-1]]):
+        obs = None
+        # print("Warning: Redundant Observation Detected!")
 
     # ======== Get Action ========
     actions = model.get_action(obs)
