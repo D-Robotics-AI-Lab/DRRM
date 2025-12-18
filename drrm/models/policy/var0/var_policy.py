@@ -355,7 +355,7 @@ class VAR0(BasePolicy, PreTrainedModel, ModuleAttrMixin):
                     F.log_softmax(pred_velocity, dim=-1), 
                     F.softmax(velocity, dim=-1), reduction='none'
                 )
-            gen_loss = gen_loss.sum(-1).mean()
+                gen_loss = gen_loss.sum(-1).mean()
             gen_loss_log = gen_loss.detach()
         else: 
             velocity = x - noise
@@ -369,8 +369,8 @@ class VAR0(BasePolicy, PreTrainedModel, ModuleAttrMixin):
                     F.log_softmax(pred_velocity, dim=-1), 
                     F.softmax(velocity, dim=-1), reduction='none'
                 )
-            gen_loss_log = gen_loss.sum(-1).mean()
-            gen_loss_log = gen_loss_log.sum(-1).mean().detach()
+                gen_loss_log = gen_loss_log.sum(-1).mean()
+            gen_loss_log = gen_loss_log.detach()
             gen_loss = 0
 
         # compute generated frames inverse loss

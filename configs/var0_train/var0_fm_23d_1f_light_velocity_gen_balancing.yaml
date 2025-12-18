@@ -21,12 +21,12 @@ shape_meta:
       type: low_dim
       
 mixed_precision: "bf16"
-output_dir: "checkpoints/var0_${train_dataset.task}_${train_dataset.demo}_fm_23d_1f_light_state_balancing"
+output_dir: "checkpoints/var0_${train_dataset.task}_${train_dataset.demo}_fm_23d_1f_light_velocity_gen_balancing"
 
 model:
   depth: 5
   noise_scheduler:
-    prediction_type: state_balancing
+    prediction_type: velocity_gen_balancing
   obs_encoder:
     state_key: null
     # rgb_key: ["head_cam", "front_cam"]
