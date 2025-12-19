@@ -298,10 +298,10 @@ class VAR0(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         # reshape B, T, ... to B*T
         # this_nobs = dict_apply(nobs, lambda x: x[:,:self.n_obs_steps,...].reshape(-1,*x.shape[2:]))
         this_nobs = dict_apply(nobs, lambda x: x.reshape(-1,*x.shape[2:]))
+        # TODO: obs encoder 加个 norm
         nobs_features = self.obs_encoder(this_nobs) # (BS, VP, Do)
-        nobs_features = nobs_features.view(batch_size, -1, nobs_features.shape[-1]) # (B, SVP, Do)
-        
-        scene_flow = nobs_features
+        scene_flow = nobs_features.view(batch_size, -1, nobs_features.shape[-1]) # (B, SVP, Do)
+
         cond_mask = self.cond_mask.to(device=scene_flow.device)
         x = scene_flow
         cond = scene_flow[:,cond_mask,...]
@@ -325,67 +325,29 @@ class VAR0(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         
         dim = scene_flow.shape[-1]
         
-        if 'state_gen' in self.prediction_type:
+        if 'state' in self.prediction_type:
             # compute generated frames state loss
             pred_scene = self.planner(noisy_x, timesteps, cond) # (B, gen_len*V*P, hidden_size)
-            gen_loss = F.kl_div(
-                F.log_softmax(pred_scene, dim=-1), 
-                F.softmax(x, dim=-1), reduction='none'
-            )
-            gen_loss = gen_loss.sum(-1).mean()
-            gen_loss_log = gen_loss.detach()
-        elif 'state' in self.prediction_type:
-            # compute generated frames state loss
-            pred_scene = self.planner(noisy_x, timesteps, cond) # (B, gen_len*V*P, hidden_size)
-            gen_loss_log = F.kl_div(
-                F.log_softmax(pred_scene, dim=-1), 
-                F.softmax(x, dim=-1), reduction='none'
-            )
-            gen_loss_log = gen_loss_log.sum(-1).mean().detach()
-            gen_loss = 0
-        elif 'velocity_gen' in self.prediction_type:
-            # compute generated frames velocity loss
-            velocity = x - noise
-            pred_velocity = self.planner(noisy_x, timesteps, cond) # (B, gen_len*V*P, hidden_size)
-            pred_scene = noise + pred_velocity
-            if 'mse' in self.prediction_type:
-                gen_loss = F.mse_loss(pred_velocity, velocity)
-            else:
-                gen_loss = F.kl_div(
-                    F.log_softmax(pred_velocity, dim=-1), 
-                    F.softmax(velocity, dim=-1), reduction='none'
-                )
-                gen_loss = gen_loss.sum(-1).mean()
-            gen_loss_log = gen_loss.detach()
+            loss_type =  'mse' if 'mse' in self.prediction_type else 'kl'
+            gen_loss = loss_func(pred_scene, x, loss_type=loss_type)
         else: 
             velocity = x - noise
-            # compute generated frames velocity loss
             pred_velocity = self.planner(noisy_x, timesteps, cond) # (B, gen_len*V*P, hidden_size)
             pred_scene = noise + pred_velocity
-            if 'mse' in self.prediction_type:
-                gen_loss_log = F.mse_loss(pred_velocity, velocity)
-            else:
-                gen_loss_log = F.kl_div(
-                    F.log_softmax(pred_velocity, dim=-1), 
-                    F.softmax(velocity, dim=-1), reduction='none'
-                )
-                gen_loss_log = gen_loss_log.sum(-1).mean()
-            gen_loss_log = gen_loss_log.detach()
-            gen_loss = 0
+            loss_type =  'mse' if 'mse' in self.prediction_type else 'kl'
+            gen_loss = loss_func(pred_velocity, velocity, loss_type=loss_type)
+        l3 = 1. if 'gen' in self.prediction_type else 0.
 
-        # compute generated frames inverse loss
         pred_scene = pred_scene.reshape(batch_size * self.gen_steps, -1, dim)
         pred = self.solver(pred_scene).view(batch_size, self.gen_steps, -1)
         gen_inv_loss = F.mse_loss(pred, actions)
+        l2 = 1. if 'ginv' in self.prediction_type else 0.
 
         # compute directly inverse loss
-        
         scene_flow = scene_flow.view(batch_size * horizon, -1, dim)
         pred = self.solver(scene_flow).view(batch_size, horizon, -1)
         inv_loss = F.mse_loss(pred, actions)
-        inv_loss_log = inv_loss.detach()
-        if 'inv' not in self.prediction_type:
-            inv_loss = torch.tensor(0.0, device=actions.device)
+        l1 = 1. if 'dinv' in self.prediction_type else 0.
         
         if 'balancing' in self.prediction_type:
             constrain = (inv_loss + gen_loss).detach()
@@ -394,5 +356,16 @@ class VAR0(BasePolicy, PreTrainedModel, ModuleAttrMixin):
             beta = (gen_inv_loss / constrain * 0.1).detach()
             loss = beta * (inv_loss + gen_loss) + gen_inv_loss
         else:
-            loss = inv_loss + gen_inv_loss + gen_loss
-        return {'loss': loss, 'inv_loss': inv_loss_log, 'gen_inv_loss': gen_inv_loss, 'gen_loss': gen_loss_log}
+            loss = l1*inv_loss + l2*gen_inv_loss + l3*gen_loss
+        return {'loss': loss, 'inv_loss': inv_loss.detach(), 'gen_inv_loss': gen_inv_loss.detach(), 'gen_loss': gen_loss.detach()}
+    
+def loss_func(pred, gt, loss_type: str = 'kl'):
+    if 'mse' == loss_type:
+        loss = F.mse_loss(pred, gt)
+    else:
+        loss = F.kl_div(
+            F.log_softmax(pred, dim=-1), 
+            F.softmax(gt, dim=-1), reduction='none'
+        )
+        loss = loss.sum(-1).mean()
+    return loss

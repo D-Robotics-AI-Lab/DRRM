@@ -34,7 +34,7 @@ class SceneEncoder(ModuleAttrMixin):
         self.out_dim_meta = self.scene_encoder.dim_out \
             + (shape_meta['obs'][state_key]['shape'][0] if state_key else 0)
 
-    def forward(self, obs_dict):
+    def forward(self, obs_dict) -> torch.tensor:
         batch_size = None
         features = list()
         BS = next(iter(obs_dict.values())).shape[0]

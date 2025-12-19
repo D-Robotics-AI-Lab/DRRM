@@ -31,6 +31,7 @@ def log_sample_res(policy_model, args, dataloader, logger):
     policy_model.eval()
     
     loss_for_log = {}
+    val_inv_losses = list()
     val_losses = list()
     for step, batch in enumerate(dataloader):
         if step >= args.num_val_batches:
@@ -38,13 +39,18 @@ def log_sample_res(policy_model, args, dataloader, logger):
         
         loss = policy_model(batch)
         if isinstance(loss, dict):
-            loss = loss.pop("gen_inv_loss")
-        val_losses.append(loss.item())
+            val_loss = loss.pop("loss")
+            val_inv_loss = loss.pop("gen_inv_loss", None)
+            if val_inv_loss: 
+                val_inv_losses.append(val_inv_loss.item())
+        val_losses.append(val_loss.item())
         
-    if len(val_losses) > 0:
-        val_loss = torch.mean(torch.tensor(val_losses)).item()
-    
+    # if len(val_losses) > 0:
+    val_loss = torch.mean(torch.tensor(val_losses)).item()
     loss_for_log['loss'] = val_loss
+    if val_inv_losses:
+        val_inv_loss = torch.mean(torch.tensor(val_inv_losses)).item()
+        loss_for_log['inv_loss'] = val_inv_loss
     
     policy_model.train()
     torch.cuda.empty_cache()
