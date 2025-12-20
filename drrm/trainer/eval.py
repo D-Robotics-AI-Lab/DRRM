@@ -24,20 +24,26 @@ from drrm.common.ema_model import EMAModel
 if is_wandb_available():
     import wandb
 
-def visualize_flow(val_dataloader, policy_model):
+def visualize_flow(val_dataloader, policy):
     # Only show the progress bar once on each machine.
     # progress_bar = tqdm(range(0, len(val_dataset)))
     # progress_bar.set_description("Steps")
     # progress_bar.update(0)
 
     
-    policy_model.eval()
+    policy.eval()
     val_losses = {}
     # Forward and backward...
-    for step, batch in enumerate(val_dataloader):
-        loss = policy_model(batch)
-        torch.cuda.empty_cache()
-        # progress_bar.update(1)
+    with torch.no_grad():
+        with torch.autocast(device_type=str(policy.device), dtype=torch.bfloat16):
+            for step, batch in enumerate(val_dataloader):
+                frame_index = batch['obs'].pop('frame_index')
+                episode_index = batch['obs'].pop('episode_index')
+                task_index = batch['obs'].pop('task_index')
+                # loss = policy(batch)
+                nsample = policy.predict_action(batch['obs'])
+                torch.cuda.empty_cache()
+                # progress_bar.update(1)
 
 def eval(args, logger):
     # task_name, expert_data_num, ckpt_setting, checkpoint_num

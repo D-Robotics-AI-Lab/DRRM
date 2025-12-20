@@ -7,11 +7,11 @@ from transformers import AutoConfig, AutoModel
 from drrm.models.base_policy import BasePolicy
 from safetensors.torch import load_model
 
-def load_policy(ckp_path, use_ckp_code = True) -> BasePolicy:
+def load_policy(ckp_path, use_ckp_code = True, device = None) -> BasePolicy:
     if use_ckp_code:
         policy_model = AutoModel.from_pretrained(ckp_path, trust_remote_code=True)
         # load state dict of normalizer
-        load_model(policy_model, os.path.join(ckp_path, "model.safetensors"), strict=False)
+        load_model(policy_model, os.path.join(ckp_path, "model.safetensors"), strict=False, device=device)
     else:
         # get package path from checkpoint config
         # config = AutoConfig.from_pretrained(ckp_path, trust_remote_code=True)
@@ -21,8 +21,9 @@ def load_policy(ckp_path, use_ckp_code = True) -> BasePolicy:
         # reload config by packege class
         config = ConfigClass.from_pretrained(ckp_path)
         policy_model = PolicyClass(config)
+        policy_model = policy_model.to(device)
         # load state dict of normalizer
-        load_model(policy_model, os.path.join(ckp_path, "model.safetensors"), strict=False)
+        load_model(policy_model, os.path.join(ckp_path, "model.safetensors"), strict=False, device=device)
     return policy_model
 
 class BaseRunner:
