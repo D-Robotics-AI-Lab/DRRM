@@ -82,6 +82,7 @@ class DRRMDataset(LeRobotDataset):
     """Enhanced LeRobot dataset with DRRM-specific features"""
     
     DEFAULT_KEYS = {'timestamp', 'frame_indx', 'episode_index', 'index', 'task_index', 'frame_index'}
+    FILTER_KEYS = {'timestamp', 'frame_indx', 'index'}
     
     def __init__(self, 
             repo_id: str,
@@ -116,6 +117,7 @@ class DRRMDataset(LeRobotDataset):
         self.task_list = task_list
         self.task_index_list = task_index_list
         self.black_index = black_index
+        self.detail_item = kwargs.pop('detail_item', False)
         
         # Setup delta timestamps
         self.delta_timestamps = self._create_delta_timestamps()
@@ -395,8 +397,11 @@ class DRRMDataset(LeRobotDataset):
         }
 
         # Add features to observations
+        filter_keys = {*self.FILTER_KEYS}
+        if not self.detail_item:
+            filter_keys.update(*self.DEFAULT_KEYS)
         for key in item:
-            if key in {*self.npy_feature_keys, *self.dataset_meta.names.keys()} and key not in {*self.DEFAULT_KEYS, 'action'}:
+            if key in {*self.npy_feature_keys, *self.dataset_meta.names.keys()} and key not in {*filter_keys, 'action'}:
                 data['obs'][key] = item[key]
                 
         return data

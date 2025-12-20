@@ -41,7 +41,7 @@ def visualize_flow(val_dataloader, policy_model):
 
 def eval(args, logger):
     # task_name, expert_data_num, ckpt_setting, checkpoint_num
-    if args.checkpoint_num is None:
+    if args.get('checkpoint_num', None) is None:
         checkpoint_dir = f"checkpoints/vodpp_{args.task_name}_{args.expert_data_num}_{args.ckpt_setting}"
     else:
         checkpoint_dir = f"checkpoints/vodpp_{args.task_name}_{args.expert_data_num}_{args.ckpt_setting}/checkpoint-{args.checkpoint_num}"
@@ -59,6 +59,6 @@ def eval(args, logger):
         persistent_workers=True,
     )
 
-    
+    visualize_flow(val_dataloader, policy_model)
 
-    return dict(loss_for_log)
+    # return dict(loss_for_log)
