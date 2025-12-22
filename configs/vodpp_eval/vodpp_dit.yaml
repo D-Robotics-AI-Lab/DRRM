@@ -68,8 +68,6 @@ checkpointing_period: 20000
 # Run sampling every X steps. During the sampling phase, the model will sample a trajectory 
 # and report the error between the sampled trajectory and groud-truth trajectory in the training batch.
 val_period: -1
-
-
 # ------------------------------- model config
 image_shape: [3, 240, 320]
 shape_meta:
@@ -99,17 +97,19 @@ n_latency_steps: 0
 # ------------------------------- dataset config
 task_name: null
 expert_data_num: null
+ckpt_setting: null
+checkpoint_num: null
 train_dataset:
   path: null
   _target_: drrm.datasets.drrm_dataset.DRRMDataset
   root: ${train_dataset.path}/${task_name}
   repo_id: D-robotics/${task_name}
   detail_item: True
-  horizon: 8
+  horizon: ${horizon}
   pad_before: 3
   pad_after: 3
   seed: 42
-  val_ratio: 0.02
+  val_ratio: 0.01
   max_train_episodes: ${expert_data_num}
   npy_feature_keys: null
   # - spatial_tokens_23

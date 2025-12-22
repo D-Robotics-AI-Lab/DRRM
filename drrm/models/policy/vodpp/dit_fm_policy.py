@@ -228,7 +228,7 @@ class VODPPlusDitFlowMatching(BasePolicy, PreTrainedModel, ModuleAttrMixin):
     
     # ========= inference  ============
     def conditional_sample(
-            self, scene_cond, state_traj, action_mask, **kwargs
+            self, scene_cond, state_traj, action_mask, return_flow:bool = False, **kwargs
         ) -> torch.Tensor:
         '''
         scene_cond: image conditional data, (batch_size, patch_num, hidden_size).
@@ -243,6 +243,9 @@ class VODPPlusDitFlowMatching(BasePolicy, PreTrainedModel, ModuleAttrMixin):
             size=(batch_size, self.horizon, self.action_dim), 
             dtype=dtype, device=device
         )
+        flow = []
+        if return_flow:
+            flow.append(noisy_action.detach().cpu().numpy())
 
         # Set step values
         num_steps = self.num_inference_timesteps
@@ -264,15 +267,17 @@ class VODPPlusDitFlowMatching(BasePolicy, PreTrainedModel, ModuleAttrMixin):
             
             # Compute previous actions: x_t -> x_t-1
             noisy_action = noisy_action + dt * pred_velocity
+            if return_flow:
+                flow.append(noisy_action.detach().cpu().numpy())
             # noisy_action = noisy_action.to(state_traj.dtype)
         
         # Finally apply the action mask to mask invalid action dimensions
         noisy_action[state_mask] = state_traj[state_mask]
 
-        return noisy_action
+        return noisy_action, flow
 
     @torch.no_grad()
-    def predict_action(self, obs_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def predict_action(self, obs_dict: Dict[str, torch.Tensor], return_flow:bool = False) -> Dict[str, torch.Tensor]:
         """
         obs_dict: must include "obs" key
         result: must include "action" key
@@ -299,11 +304,11 @@ class VODPPlusDitFlowMatching(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         nobs_features = self.obs_encoder(this_nobs) # (BS, VP, Do)
         scene_cond = self.adapt_conditions(nobs_features) # (BS, VP, hidden_size)
         state_traj = torch.zeros(size=(B, T, Da), device=device, dtype=dtype)
-        state_traj[:,:To,:] = this_nobs['agent_pos']
+        state_traj[:,:To,:] = this_nobs['agent_pos'].view(B,To,-1)
         action_mask = self.action_mask.expand(B, -1, -1).to(device=device)
 
         # run sampling
-        nsample = self.conditional_sample(scene_cond, state_traj, action_mask)
+        nsample, flow = self.conditional_sample(scene_cond, state_traj, action_mask, return_flow)
         
         # unnormalize prediction
         naction_pred = nsample[...,:Da]
@@ -313,10 +318,13 @@ class VODPPlusDitFlowMatching(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         start = To
         end = start + self.n_action_steps
         action = action_pred[:,start:end]
+        flow = [smp[:,start:end] for smp in flow]
         
         result = {
             'action': action,
-            'action_pred': action_pred
+            'action_pred': action_pred,
+            'flow': flow,
+            'gt': nobs['agent_pos'][:,start:end]
         }
         return result
 

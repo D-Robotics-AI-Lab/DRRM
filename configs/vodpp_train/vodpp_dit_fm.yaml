@@ -152,7 +152,7 @@ train_dataset:
   _target_: drrm.datasets.drrm_dataset.DRRMDataset
   root: ${train_dataset.path}/${train_dataset.task}
   repo_id: D-robotics/${train_dataset.task}
-  horizon: 8
+  horizon: ${horizon}
   pad_before: 3
   pad_after: 3
   seed: 42
