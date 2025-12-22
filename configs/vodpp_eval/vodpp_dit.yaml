@@ -1,6 +1,6 @@
 # --------------------------- trainer config
 # trainer function
-_target_: drrm.trainer.train.train
+_target_: drrm.trainer.eval.eval
 # Number of updates steps to accumulate before performing a backward/update pass.
 gradient_accumulation_steps: 1
 # Whether to use mixed precision. Choose between fp16 and bf16 (bfloat16). Bf16 requires PyTorch >= 1.10.and an Nvidia Ampere GPU.  
@@ -11,7 +11,6 @@ mixed_precision: "bf16" # "no", "fp16", "bf16"
 # Use `"all"` to report to all integrations.
 report_to: "wandb"
 # The output directory where the model predictions and checkpoints will be written.
-output_dir: checkpoints/vodp_${train_dataset.task}_${train_dataset.demo}_base
 # [TensorBoard](https://www.tensorflow.org/tensorboard) log directory. Will default to *output_dir/runs/**CURRENT_DATETIME_HOSTNAME***.
 logging_dir: logs
 # Max number of checkpoints to store. Passed as `total_limit` to the `Accelerator` `ProjectConfiguration`.
@@ -69,8 +68,6 @@ checkpointing_period: 20000
 # Run sampling every X steps. During the sampling phase, the model will sample a trajectory 
 # and report the error between the sampled trajectory and groud-truth trajectory in the training batch.
 val_period: -1
-
-
 # ------------------------------- model config
 image_shape: [3, 240, 320]
 shape_meta:
@@ -97,71 +94,23 @@ horizon: 8
 n_obs_steps: 3
 n_action_steps: 8
 n_latency_steps: 0
-model:
-  target_config: drrm.models.VODPPlusDitDDPMConfig
-  target_policy: drrm.models.VODPPlusDitDDPM
-  shape_meta: ${shape_meta}
-  noise_scheduler:
-    _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
-    num_train_timesteps: 100
-    num_inference_timesteps: 5
-    beta_schedule: squaredcos_cap_v2
-    clip_sample: False
-    prediction_type: sample
-  noise_scheduler_sample:
-    _target_: diffusers.schedulers.scheduling_dpmsolver_multistep.DPMSolverMultistepScheduler
-    num_train_timesteps: ${model.noise_scheduler.num_train_timesteps}
-    beta_schedule: ${model.noise_scheduler.beta_schedule}
-    prediction_type: ${model.noise_scheduler.prediction_type}
-  obs_encoder:
-    _target_: drrm.models.VODPPlusEncoder
-    shape_meta: ${shape_meta}
-    emvis_config: null
-    resize_shape: null
-    crop_shape: null
-    # constant center crop
-    random_crop: True
-    use_group_norm: True
-    share_rgb_model: False
-    imagenet_norm: True
-  scene_adaptor: mlp2x_gelu
-  state_adaptor: mlp3x_gelu
-  hidden_size: 2048
-  depth: 8 # 28
-  num_heads: 32 # 32
-  horizon: ${horizon}
-  n_action_steps: ${eval:'${n_action_steps}+${n_latency_steps}'}
-  n_obs_steps: ${n_obs_steps}
-  num_inference_steps: 100
-  # crop_shape: null
-  diffusion_step_embed_dim: 128
-  # down_dims: [512, 1024, 2048]
-  down_dims: [256, 512, 1024]
-  kernel_size: 5
-  n_groups: 8
-  cond_predict_scale: True
-ema:
-  update_after_step: 0
-  inv_gamma: 1.0
-  power: 0.75
-  min_value: 0.0
-  max_value: 0.9999
-
-
 # ------------------------------- dataset config
+task_name: null
+expert_data_num: null
+ckpt_setting: null
+checkpoint_num: null
 train_dataset:
-  task: null
-  demo: null
   path: null
   _target_: drrm.datasets.drrm_dataset.DRRMDataset
-  root: ${train_dataset.path}/${train_dataset.task}
-  repo_id: D-robotics/${train_dataset.task}
+  root: ${train_dataset.path}/${task_name}
+  repo_id: D-robotics/${task_name}
+  detail_item: True
   horizon: ${horizon}
   pad_before: 3
   pad_after: 3
   seed: 42
-  val_ratio: 0.02
-  max_train_episodes: ${train_dataset.demo}
+  val_ratio: 0.01
+  max_train_episodes: ${expert_data_num}
   npy_feature_keys: null
   # - spatial_tokens_23
   # - image_tokens_pos
