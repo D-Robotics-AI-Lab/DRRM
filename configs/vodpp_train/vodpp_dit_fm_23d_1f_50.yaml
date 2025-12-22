@@ -5,6 +5,8 @@ horizon: 50
 n_obs_steps: 1
 n_action_steps: 50
 n_latency_steps: 0
+checkpointing_period: 5000
+val_period: 500
 
 shape_meta:
   obs:
