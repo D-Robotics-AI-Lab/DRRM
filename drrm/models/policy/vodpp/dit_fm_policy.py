@@ -324,7 +324,10 @@ class VODPPlusDitFlowMatching(BasePolicy, PreTrainedModel, ModuleAttrMixin):
             'action': action,
             'action_pred': action_pred,
             'flow': flow,
-            'gt': nobs['agent_pos'][:,start:end]
+            'gt': nobs['agent_pos'][:,start:end],
+            'obs': scene_cond.detach(),
+            'img': this_nobs['head_cam'].detach(),
+            'state': this_nobs['agent_pos'].view(B,To,-1).detach()
         }
         return result
 

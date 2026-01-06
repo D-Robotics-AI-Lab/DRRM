@@ -26,7 +26,7 @@ if is_wandb_available():
 
 @torch.no_grad()
 def log_sample_res(policy_model, args, dataloader, logger):
-    logger.info(f"Running sampling for {args.num_val_batches} batches...")
+    logger.info(f"Running sampling for {args.num_val_batches} batches (bs={args.val_batch_size})...")
 
     policy_model.eval()
     
@@ -43,6 +43,8 @@ def log_sample_res(policy_model, args, dataloader, logger):
             val_inv_loss = loss.pop("gen_inv_loss", None)
             if val_inv_loss: 
                 val_inv_losses.append(val_inv_loss.item())
+        else:
+            val_loss = loss
         val_losses.append(val_loss.item())
         
     # if len(val_losses) > 0:
