@@ -11,7 +11,8 @@ mixed_precision: "bf16" # "no", "fp16", "bf16"
 # Use `"all"` to report to all integrations.
 report_to: "wandb"
 # The output directory where the model predictions and checkpoints will be written.
-output_dir: checkpoints/var0_${train_dataset.task}_${train_dataset.demo}_base
+base_dir: checkpoints/var0/${train_dataset.task}_${train_dataset.demo}/var0mix
+output_dir: ${base_dir}
 # [TensorBoard](https://www.tensorflow.org/tensorboard) log directory. Will default to *output_dir/runs/**CURRENT_DATETIME_HOSTNAME***.
 logging_dir: logs
 # Max number of checkpoints to store. Passed as `total_limit` to the `Accelerator` `ProjectConfiguration`.
@@ -98,19 +99,16 @@ n_obs_steps: 3
 n_action_steps: 8
 n_latency_steps: 0
 model:
-  target_config: drrm.models.VAR0Config
-  target_policy: drrm.models.VAR0
+  target_config: drrm.models.var0mix.VAR0MixConfig
+  target_policy: drrm.models.var0mix.VAR0Mix
   shape_meta: ${shape_meta}
   noise_scheduler:
     num_train_timesteps: 1000
-    num_inference_timesteps: 10
-    beta_schedule: squaredcos_cap_v2
-    noise_beta_alpha: 1.5
-    noise_beta_beta: 1.0
-    noise_s: 0.999
-    prediction_type: velocity
+    t_action: 0.9
+    t_obs: 0.2
+    prediction_type: '' # velocity. sample
   obs_encoder:
-    _target_: drrm.models.VODPPlusEncoder
+    _target_: drrm.models.var0mix.VODPPlusEncoder
     shape_meta: ${shape_meta}
     emvis_config: null
     resize_shape: null
@@ -122,13 +120,20 @@ model:
     imagenet_norm: True
   scene_adaptor: mlp2x_gelu
   state_adaptor: mlp3x_gelu
-  hidden_size: 1024
+  hidden_size: 2048
   depth: 8 # 28
   num_heads: 32 # 32
   horizon: ${horizon}
   n_action_steps: ${eval:'${n_action_steps}+${n_latency_steps}'}
   n_obs_steps: ${n_obs_steps}
   num_inference_steps: 100
+  # crop_shape: null
+  diffusion_step_embed_dim: 128
+  # down_dims: [512, 1024, 2048]
+  down_dims: [256, 512, 1024]
+  kernel_size: 5
+  n_groups: 8
+  cond_predict_scale: True
 ema:
   update_after_step: 0
   inv_gamma: 1.0
@@ -145,7 +150,7 @@ train_dataset:
   _target_: drrm.datasets.drrm_dataset.DRRMDataset
   root: ${train_dataset.path}/${train_dataset.task}
   repo_id: D-robotics/${train_dataset.task}
-  horizon: 8
+  horizon: ${horizon}
   pad_before: 3
   pad_after: 3
   seed: 42

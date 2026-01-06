@@ -23,7 +23,7 @@ from typing import Optional
 from transformers import PretrainedConfig, PreTrainedModel
 
 @dataclass
-class VODPPlusDitFlowMatchingConfig(PretrainedConfig):
+class VAR0MixConfig(PretrainedConfig):
     shape_meta: dict
     noise_scheduler: dict
     obs_encoder: VODPPlusEncoder
@@ -39,7 +39,7 @@ class VODPPlusDitFlowMatchingConfig(PretrainedConfig):
     kernel_size: int = 5
     n_groups: int = 8
     cond_predict_scale: bool = True
-    self_attn_first: bool = True
+    self_attn_first: bool = False
     block_type: str = ''
 
     def __init__(self, *args, **kwargs):
@@ -67,18 +67,21 @@ class VODPPlusDitFlowMatchingConfig(PretrainedConfig):
         return cls(**config_dict)
 
 
-class VODPPlusDitFlowMatching(BasePolicy, PreTrainedModel, ModuleAttrMixin):
-    config_class = VODPPlusDitFlowMatchingConfig
+class VAR0Mix(BasePolicy, PreTrainedModel, ModuleAttrMixin):
+    config_class = VAR0MixConfig
 
-    def __init__(self, config: VODPPlusDitFlowMatchingConfig):
+    def __init__(self, config: VAR0MixConfig):
         super().__init__(config)
         self.num_timestep_buckets = config.noise_scheduler['num_train_timesteps']
-        self.num_inference_timesteps = config.noise_scheduler['num_inference_timesteps']
-        self.beta_dist = torch.distributions.Beta(
-            config.noise_scheduler['noise_beta_alpha'], 
-            config.noise_scheduler['noise_beta_beta']
-        )
-        self.noise_s = config.noise_scheduler['noise_s']
+        # self.num_inference_timesteps = config.noise_scheduler['num_inference_timesteps']
+        # self.beta_dist = torch.distributions.Beta(
+        #     config.noise_scheduler['noise_beta_alpha'], 
+        #     config.noise_scheduler['noise_beta_beta']
+        # )
+        # self.noise_s = config.noise_scheduler['noise_s']
+        self.t_action = config.noise_scheduler['t_action']
+        self.t_obs = config.noise_scheduler['t_obs']
+        self.prediction_type = config.noise_scheduler['prediction_type']
         
         self.obs_encoder = hydra.utils.instantiate(config.obs_encoder)
 
@@ -95,6 +98,11 @@ class VODPPlusDitFlowMatching(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         obs_feature_dim = dim
         action_mask = torch.zeros(1, horizon, action_dim).bool()
         action_mask[:,n_obs_steps:,:] = True
+
+        self.prompt = torch.nn.Embedding(
+            num_embeddings=action_mask.sum(),
+            embedding_dim=action_dim
+        )
 
         # create diffusion model
         num_patches = H * W
@@ -239,37 +247,41 @@ class VODPPlusDitFlowMatching(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         device = state_traj.device
         dtype = state_traj.dtype
         batch_size = state_traj.shape[0]
-        noisy_action = torch.randn(
+        act_0 = torch.zeros(
             size=(batch_size, self.horizon, self.action_dim), 
             dtype=dtype, device=device
         )
-
-        # Set step values
-        num_steps = self.num_inference_timesteps
-        dt = 1.0 / num_steps
+        
 
         state_mask = ~action_mask
-        for t in range(num_steps):
-            # timesteps = t.unsqueeze(-1).to(device)
-            t_discretized = int(t / float(num_steps) * self.num_timestep_buckets)
-            timesteps = torch.full(
-                size=(batch_size,), fill_value=t_discretized, device=device
-            )
-            # Prepare state-action trajectory
-            noisy_action[state_mask] = state_traj[state_mask]
-            state_action_traj = self.state_adaptor(noisy_action)
-            
-            # Predict the model output
-            pred_velocity = self.model(state_action_traj, timesteps, scene_cond)
-            
-            # Compute previous actions: x_t -> x_t-1
-            noisy_action = noisy_action + dt * pred_velocity
-            # noisy_action = noisy_action.to(state_traj.dtype)
-        
-        # Finally apply the action mask to mask invalid action dimensions
-        noisy_action[state_mask] = state_traj[state_mask]
+        s = torch.zeros(batch_size, device=act_0.device, dtype=torch.long)
+        t = (s + int(self.t_action * self.num_timestep_buckets)).detach() # shape (B,)
 
-        return noisy_action
+        # Prepare state-action trajectory
+        act_0[state_mask] = state_traj[state_mask]
+        # Predict the model output
+        pred = self.model(self.state_adaptor(act_0), s, scene_cond)
+        # Compute previous actions
+        if self.prediction_type == 'velocity': # velocity
+            act_t = act_0 + pred * self.t_action
+        elif self.prediction_type == 'sample': # sample
+            act_t = pred * self.t_action + act_0 * (1-self.t_action)
+        else:
+            act_t = pred
+        
+        # Prepare state-action trajectory
+        act_t[state_mask] = state_traj[state_mask]
+        # Predict the model output
+        pred = self.model(self.state_adaptor(act_t), s, scene_cond)
+        # Compute previous actions
+        if self.prediction_type == 'velocity': # velocity
+            act_1 = act_0 + pred * (1-self.t_action)
+        elif self.prediction_type == 'sample': # sample
+            act_1 = pred
+        else:
+            act_1 = pred
+
+        return act_1
 
     @torch.no_grad()
     def predict_action(self, obs_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
@@ -324,54 +336,66 @@ class VODPPlusDitFlowMatching(BasePolicy, PreTrainedModel, ModuleAttrMixin):
     def set_normalizer(self, normalizer: LinearNormalizer):
         self.normalizer.load_state_dict(normalizer.state_dict())
 
-    def sample_time(self, batch_size, device, dtype):
-        sample = self.beta_dist.sample([batch_size]).to(device, dtype=dtype)
-        return (self.noise_s - sample) / self.noise_s
+    # def sample_time(self, batch_size, device, dtype):
+    #     sample = self.beta_dist.sample([batch_size]).to(device, dtype=dtype)
+    #     return (self.noise_s - sample) / self.noise_s
 
     def compute_loss(self, batch):
         # normalize input
         assert 'valid_mask' not in batch
         nobs = self.normalizer.normalize(batch['obs'])
-        actions = self.normalizer['action'].normalize(batch['action'])
-        batch_size = actions.shape[0]
-        horizon = actions.shape[1]
+        act_1 = self.normalizer['action'].normalize(batch['action'])
+        batch_size = act_1.shape[0]
+        horizon = act_1.shape[1]
 
         # handle different ways of passing observation
         # reshape B, T, ... to B*T
         this_nobs = dict_apply(nobs, lambda x: x[:,:self.n_obs_steps,...].reshape(-1,*x.shape[2:]))
         nobs_features = self.obs_encoder(this_nobs) # (BS, VP, Do)
-        scene_cond = self.adapt_conditions(nobs_features) # (BS, VP, hidden_size)
-        state_traj = actions
-        action_mask = self.action_mask.expand(batch_size, -1, -1).to(device=state_traj.device)
+        obs_1 = self.adapt_conditions(nobs_features) # (BS, VP, hidden_size)
+        action_mask = self.action_mask.expand(batch_size, -1, -1).to(device=act_1.device)
 
-        # Sample noise that we'll add to the images
-        noise = torch.randn(actions.shape, device=actions.device)
-        # Sample a random timestep for each image
-        t = self.sample_time(
-            actions.shape[0],
-            device=actions.device,
-            dtype=actions.dtype
+        # Sample noise for observations
+        noise = torch.randn(obs_1.shape, device=obs_1.device)
+        obs_t = obs_1 + (1 - self.t_obs) * noise # (BS, VP, hidden_size)
+
+        # Sample noise for actions
+        noise = torch.randn(act_1.shape, device=act_1.device)
+        act_0 = act_1.clone().detach()
+        gen_act_step = self.action_mask[...,0].sum()
+        index_batch = torch.arange(
+            gen_act_step, 
+            dtype=torch.long, 
+            device=act_1.device
         )
-        t = t[:, None, None]  # shape (B,1,1) for broadcast
-        # Convert (continuous) t -> discrete if needed
-        timesteps = (t[:, 0, 0] * self.num_timestep_buckets).long() # shape (B,)
-        
-        # Add noise to the clean images according to the noise magnitude at each timestep
-        # (this is the forward diffusion process)
-        noisy_traj = (1 - t) * noise + t * actions
-        velocity = actions - noise
-        
-        # compute loss mask
-        cond_mask = ~action_mask
-        # apply conditioning
-        noisy_traj[cond_mask] = state_traj[cond_mask]
-        state_noisy_tokens = self.state_adaptor(noisy_traj)
+        prompt_batch = self.prompt(index_batch).unsqueeze(0).expand(batch_size, -1, -1)
+        act_0[:,-gen_act_step:,:] = prompt_batch
+        act_t = act_1 + (1 - self.t_action) * noise
+
+        # Convert (continuous) t -> discrete
+        s = torch.zeros(batch_size, device=act_1.device, dtype=torch.long)
+        t = (s + int(self.t_action * self.num_timestep_buckets)).detach() # shape (B,)
         
         # Predict the noise residual
-        pred = self.model(state_noisy_tokens, timesteps, scene_cond)
+        pred_0 = self.model(self.state_adaptor(act_0), s, obs_t)
+        pred_t = self.model(self.state_adaptor(act_t), t, obs_1)
 
-        loss = F.mse_loss(pred, velocity, reduction='none')
-        loss = loss * action_mask.type(loss.dtype)
-        loss = reduce(loss, 'b ... -> b (...)', 'mean')
-        loss = loss.mean()
-        return loss
+        def mse_loss(pred, gt):
+            loss = F.mse_loss(pred[action_mask], gt[action_mask])
+            return loss
+
+        if self.prediction_type == 'velocity': # velocity
+            loss_0 = mse_loss(pred_0, act_1-act_0)
+            loss_t = mse_loss(pred_t, act_1-act_0)
+        elif self.prediction_type == 'sample': # sample
+            loss_0 = mse_loss(pred_0, act_1)
+            loss_t = mse_loss(pred_t, act_1)/(1-self.t_action)
+        else: # hybrid
+            loss_0 = mse_loss(pred_0, (act_1-act_0)*self.t_action)/self.t_action
+            loss_t = mse_loss(pred_t, act_1)/(1-self.t_action)
+        loss = loss_0 + loss_t
+        return {
+            'loss': loss, 
+            'loss (step=0)': loss_0.detach(), 
+            f'loss (step={self.t_action})': loss_t.detach()
+        }

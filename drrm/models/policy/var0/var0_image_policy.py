@@ -25,7 +25,7 @@ from typing import Optional
 from transformers import PretrainedConfig, PreTrainedModel
 
 @dataclass
-class VAR0Config(PretrainedConfig):
+class VAR0ImageConfig(PretrainedConfig):
     shape_meta: dict
     noise_scheduler: dict
     obs_encoder: VODPPlusEncoder
@@ -75,10 +75,10 @@ class VAR0Config(PretrainedConfig):
 # 2. IK Solver from Latent Scene Features
 ########################################################
 
-class VAR0(BasePolicy, PreTrainedModel, ModuleAttrMixin):
-    config_class = VAR0Config
+class VAR0Image(BasePolicy, PreTrainedModel, ModuleAttrMixin):
+    config_class = VAR0ImageConfig
 
-    def __init__(self, config: VAR0Config):
+    def __init__(self, config: VAR0ImageConfig):
         super().__init__(config)
         self.num_timestep_buckets = config.noise_scheduler['num_train_timesteps']
         self.num_inference_timesteps = config.noise_scheduler['num_inference_timesteps']

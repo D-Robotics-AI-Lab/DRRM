@@ -1,13 +1,8 @@
 defaults:
-  - var0
+  - var0_mix
   - _self_
-
-checkpointing_period: 1000
-val_period: 500
-num_val_batches: 8
-num_train_epochs: 100
-
 n_obs_steps: 1
+
 shape_meta:
   obs:
     head_cam:
@@ -21,12 +16,10 @@ shape_meta:
       type: low_dim
       
 mixed_precision: "bf16"
-output_dir: "checkpoints/var0_${train_dataset.task}_${train_dataset.demo}_fm_23d_1f_light_velocity"
+output_dir: ${base_dir}_invdit_fm_23d_1f
 
 model:
-  depth: 5
-  noise_scheduler:
-    prediction_type: velocity
+  block_type: invblock
   obs_encoder:
     state_key: null
     # rgb_key: ["head_cam", "front_cam"]
@@ -51,11 +44,7 @@ model:
         dim_out: 1024
       model_adapter_config:
         target: ResNetAdapter
-        shape_out: [1, 1]
+        shape_out: [2, 2]
         dim_out: 1024
         conv_num: 3
-        final_project: False
       mv_fuser_config: {}
-
-train_dataset:
-  val_ratio: 0.1
