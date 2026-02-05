@@ -16,9 +16,10 @@ shape_meta:
       type: low_dim
       
 mixed_precision: "bf16"
-output_dir: "checkpoints/vodpp/${train_dataset.task}_${train_dataset.demo}/dit_ddpm_23d_1f"
+output_dir: "checkpoints/vodpp/${train_dataset.task}_${train_dataset.demo}/invdit_ddpm_23d_1f"
 
 model:
+  block_type: invblock
   obs_encoder:
     state_key: null
     # rgb_key: ["head_cam", "front_cam"]

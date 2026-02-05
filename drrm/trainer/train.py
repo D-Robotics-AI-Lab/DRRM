@@ -92,6 +92,17 @@ def save_policy_custom(polciy, save_path):
         for k,v in state_dict.items()
         if not is_shared(k)
     }
+
+    # handle shared tensors that might confuse save_pretrained
+    ptr_to_key = {}
+    for k, v in filtered_state_dict.items():
+        if isinstance(v, torch.Tensor):
+            ptr = v.data_ptr()
+            if ptr in ptr_to_key:
+                filtered_state_dict[k] = v.clone()
+            else:
+                ptr_to_key[ptr] = k
+
     polciy.save_pretrained(save_path, state_dict=filtered_state_dict, max_shard_size="10GB")
     
 def load_policy(ckp_path, use_ckp_code = True):
@@ -264,7 +275,6 @@ def train(args, logger):
     policy_model, optimizer, train_dataloader, val_dataloader, lr_scheduler = accelerator.prepare(
         policy_model, optimizer, train_dataloader, val_dataloader, lr_scheduler                   
     )
-
     ema_policy_model.to(accelerator.device, dtype=weight_dtype)
 
     # We need to initialize the trackers we use, and also store our configuration.

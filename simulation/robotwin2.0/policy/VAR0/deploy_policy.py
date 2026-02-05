@@ -21,10 +21,11 @@ def encode_obs(observation):
 
 
 def get_model(usr_args):
-    if usr_args['checkpoint_num'] is None:
-        ckpt_file = f"{ROOT_DIR}/checkpoints/var0_{usr_args['task_name']}_{usr_args['expert_data_num']}_{usr_args['ckpt_setting']}"
-    else:
-        ckpt_file = f"{ROOT_DIR}/checkpoints/var0_{usr_args['task_name']}_{usr_args['expert_data_num']}_{usr_args['ckpt_setting']}/checkpoint-{usr_args['checkpoint_num']}"
+    ckpt_file = f"{ROOT_DIR}/checkpoints/var0_{usr_args['task_name']}_{usr_args['expert_data_num']}_{usr_args['ckpt_setting']}"
+    if not os.path.exists(ckpt_file):
+        ckpt_file = f"{ROOT_DIR}/checkpoints/var0/{usr_args['task_name']}_{usr_args['expert_data_num']}/{usr_args['ckpt_setting']}"
+    if usr_args['checkpoint_num'] is not None:
+        ckpt_file = f"{ckpt_file}/checkpoint-{usr_args['checkpoint_num']}"
     kwargs = {}
     if 'device' in usr_args:
         kwargs['device'] = f"cuda:{usr_args['device']}"

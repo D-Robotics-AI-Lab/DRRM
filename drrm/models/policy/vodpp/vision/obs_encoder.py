@@ -43,7 +43,7 @@ class SceneEncoder(ModuleAttrMixin):
         # process rgb input
         rgb_image = torch.cat([obs_dict[key].unsqueeze(1) for key in self.rgb_key], dim=1) # BS, V, C, H, W 
         # 重塑图像形状并归一化到0-1范围
-        rgb_image = (rgb_image + 1) / 2  # 从[-1,1]归一化到[0,1]
+        rgb_image = (rgb_image + 1) / 2 # 从[-1,1]归一化到[0,1]
         emvis_feat = self.scene_encoder(rgb_image) # BS, V, C, H, W -> BS, V, 1, dim
         out_format =  (BS, -1) if self.state_key else (BS, -1, dim) # BS, V*P, dim / BS, dim
         emvis_feat = emvis_feat.reshape(*out_format)
