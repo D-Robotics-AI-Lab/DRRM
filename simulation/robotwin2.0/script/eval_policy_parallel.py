@@ -24,13 +24,17 @@ import importlib
 import argparse
 import multiprocessing as mp
 from multiprocessing import Manager, Process, Queue
-
+from video_process import merge_episodes
 from description.utils.generate_episode_instructions import *
 
 
 current_file_path = os.path.abspath(__file__)
 parent_directory = os.path.dirname(current_file_path)
 # os.chdir(os.path.join(os.getcwd(), "simulation/robotwin2.0"))
+
+import subprocess
+import os
+import tempfile
 
 def get_visible_gpu_num():
     if "CUDA_VISIBLE_DEVICES" in os.environ:
@@ -240,6 +244,7 @@ def main(usr_args):
 
     # print(f"Data has been saved to {file_path}")
     # return task_reward
+    merge_episodes(save_dir, "0_merged_episodes.mp4", speed=4.0)
 
 def eval_policy(
     task_name,
