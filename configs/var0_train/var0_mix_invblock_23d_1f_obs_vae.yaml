@@ -16,12 +16,13 @@ shape_meta:
       type: low_dim
       
 mixed_precision: "bf16"
-output_dir: ${base_dir}_invdit
+output_dir: ${base_dir}_invdit_obs_vae
 
 model:
   use_prompt: false
   noise_scheduler:
     t_obs: 1.0
+    condition_type: 'vae'
   block_type: invblock
   obs_encoder:
     state_key: null

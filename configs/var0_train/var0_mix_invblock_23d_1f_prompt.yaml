@@ -16,10 +16,10 @@ shape_meta:
       type: low_dim
       
 mixed_precision: "bf16"
-output_dir: ${base_dir}_invdit
+output_dir: ${base_dir}_invdit_prompt
 
 model:
-  use_prompt: false
+  use_prompt: true
   noise_scheduler:
     t_obs: 1.0
   block_type: invblock

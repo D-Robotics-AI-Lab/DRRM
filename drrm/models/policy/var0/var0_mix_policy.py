@@ -41,6 +41,7 @@ class VAR0MixConfig(PretrainedConfig):
     cond_predict_scale: bool = True
     self_attn_first: bool = False
     block_type: str = ''
+    use_prompt: bool = True
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -82,6 +83,7 @@ class VAR0Mix(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         self.t_action = config.noise_scheduler['t_action']
         self.t_obs = config.noise_scheduler['t_obs']
         self.prediction_type = config.noise_scheduler['prediction_type']
+        self.condition_type = config.noise_scheduler.get('condition_type', 'turbulence')
         
         self.obs_encoder = hydra.utils.instantiate(config.obs_encoder)
 
@@ -102,7 +104,7 @@ class VAR0Mix(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         self.prompt = torch.nn.Embedding(
             num_embeddings=action_mask.sum(),
             embedding_dim=action_dim
-        )
+        ) if config.use_prompt else None
 
         # create diffusion model
         num_patches = H * W
@@ -177,7 +179,7 @@ class VAR0Mix(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         self.scene_adaptor = self.build_condition_adapter(
             config.scene_adaptor, 
             in_features=obs_feature_dim, 
-            out_features=hidden_size
+            out_features=hidden_size*2 if self.condition_type == 'vae' else hidden_size
         )
 
         # A `state` refers to an action or a proprioception vector
@@ -244,13 +246,34 @@ class VAR0Mix(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         
         return: (batch_size, horizon, action_dim)
         '''
+        # TODO: implement decay condition type
         device = state_traj.device
         dtype = state_traj.dtype
         batch_size = state_traj.shape[0]
+        if self.condition_type == 'decay':
+            noise = torch.randn(scene_cond.shape, device=scene_cond.device)
+            scene_cond = self.t_obs * scene_cond + (1. - self.t_obs) * noise # (BS, VP, hidden_size)
+        elif self.condition_type == 'vae':
+            BS, VP, HS2 = scene_cond.shape
+            HS = HS2 // 2
+            noise = torch.randn((BS, VP, HS), device=scene_cond.device)
+            mu, sigma = scene_cond[...,:HS], scene_cond[...,HS:]
+            scene_cond = mu + sigma * noise
+
         act_0 = torch.zeros(
             size=(batch_size, self.horizon, self.action_dim), 
             dtype=dtype, device=device
         )
+        
+        if self.prompt != None:
+            gen_act_step = self.action_mask[...,0].sum()
+            index_batch = torch.arange(
+                gen_act_step, 
+                dtype=torch.long, 
+                device=act_0.device
+            )
+            prompt_batch = self.prompt(index_batch).unsqueeze(0).expand(batch_size, -1, -1)
+            act_0[:,-gen_act_step:,:] = prompt_batch
         
 
         state_mask = ~action_mask
@@ -265,18 +288,29 @@ class VAR0Mix(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         if self.prediction_type == 'velocity': # velocity
             act_t = act_0 + pred * self.t_action
         elif self.prediction_type == 'sample': # sample
-            act_t = pred * self.t_action + act_0 * (1-self.t_action)
-        else:
+            # act_t = pred * self.t_action + act_0 * (1-self.t_action)
+            act_t = pred * self.t_action
+            # act_t = pred
+        elif self.prediction_type == 'mid': # mid
             act_t = pred
+        else:
+            act_t = act_0 + pred
         
+        act_t = act_t.to(device=device, dtype=dtype)
         # Prepare state-action trajectory
         act_t[state_mask] = state_traj[state_mask]
         # Predict the model output
-        pred = self.model(self.state_adaptor(act_t), s, scene_cond)
+        pred = self.model(
+            self.state_adaptor(act_t), 
+            t, 
+            mu if self.condition_type == 'vae' else scene_cond
+        )
         # Compute previous actions
         if self.prediction_type == 'velocity': # velocity
-            act_1 = act_0 + pred * (1-self.t_action)
+            act_1 = act_t + pred * (1-self.t_action)
         elif self.prediction_type == 'sample': # sample
+            act_1 = pred
+        elif self.prediction_type == 'mid': # mid
             act_1 = pred
         else:
             act_1 = pred
@@ -357,19 +391,32 @@ class VAR0Mix(BasePolicy, PreTrainedModel, ModuleAttrMixin):
 
         # Sample noise for observations
         noise = torch.randn(obs_1.shape, device=obs_1.device)
-        obs_t = obs_1 + (1 - self.t_obs) * noise # (BS, VP, hidden_size)
+        if self.condition_type == 'decay': 
+            obs_t = self.t_obs * obs_1 + (1. - self.t_obs) * noise # (BS, VP, hidden_size)
+        elif self.condition_type == 'vae':
+            BS, VP, HS2 = obs_1.shape
+            HS = HS2 // 2
+            noise = torch.randn((BS, VP, HS), device=obs_1.device)
+            mu, sigma = obs_1[...,:HS], obs_1[...,HS:]
+            obs_t = mu + sigma * noise
+            obs_1 = mu
+        else:
+            obs_t = obs_1 + (1. - self.t_obs) * noise # (BS, VP, hidden_size)
 
         # Sample noise for actions
         noise = torch.randn(act_1.shape, device=act_1.device)
         act_0 = act_1.clone().detach()
         gen_act_step = self.action_mask[...,0].sum()
-        index_batch = torch.arange(
-            gen_act_step, 
-            dtype=torch.long, 
-            device=act_1.device
-        )
-        prompt_batch = self.prompt(index_batch).unsqueeze(0).expand(batch_size, -1, -1)
-        act_0[:,-gen_act_step:,:] = prompt_batch
+        if self.prompt != None:
+            index_batch = torch.arange(
+                gen_act_step,
+                dtype=torch.long, 
+                device=act_1.device
+            )
+            prompt_batch = self.prompt(index_batch).unsqueeze(0).expand(batch_size, -1, -1)
+            act_0[:,-gen_act_step:,:] = prompt_batch
+        else:
+            act_0[:,-gen_act_step:,:] = 0.0
         act_t = act_1 + (1 - self.t_action) * noise
 
         # Convert (continuous) t -> discrete
@@ -389,6 +436,9 @@ class VAR0Mix(BasePolicy, PreTrainedModel, ModuleAttrMixin):
             loss_t = mse_loss(pred_t, act_1-act_0)
         elif self.prediction_type == 'sample': # sample
             loss_0 = mse_loss(pred_0, act_1)
+            loss_t = mse_loss(pred_t, act_1)/(1-self.t_action)
+        elif self.prediction_type == 'mid': # mid
+            loss_0 = mse_loss(pred_0, act_1*self.t_action+act_0*(1-self.t_action))/self.t_action
             loss_t = mse_loss(pred_t, act_1)/(1-self.t_action)
         else: # hybrid
             loss_0 = mse_loss(pred_0, (act_1-act_0)*self.t_action)/self.t_action

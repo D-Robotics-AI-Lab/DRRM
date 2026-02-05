@@ -105,8 +105,9 @@ model:
   noise_scheduler:
     num_train_timesteps: 1000
     t_action: 0.9
-    t_obs: 0.2
-    prediction_type: '' # velocity. sample
+    t_obs: 0.8
+    condition_type: 'turbulence' # turbulence, decay
+    prediction_type: 'sample' # velocity, sample
   obs_encoder:
     _target_: drrm.models.var0mix.VODPPlusEncoder
     shape_meta: ${shape_meta}
