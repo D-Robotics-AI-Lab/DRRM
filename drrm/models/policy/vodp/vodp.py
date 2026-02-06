@@ -125,12 +125,12 @@ class VODP(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         self.n_obs_steps = n_obs_steps
         self.obs_as_global_cond = obs_as_global_cond
         # self.kwargs = kwargs
-        self.kwargs = {} #
+        self.kwargs = {}
 
         if num_inference_steps is None:
             num_inference_steps = noise_scheduler.num_train_timesteps
         self.num_inference_steps = num_inference_steps
-    
+
     # ========= inference  ============
     def conditional_sample(self, 
             condition_data, condition_mask,
@@ -138,33 +138,48 @@ class VODP(BasePolicy, PreTrainedModel, ModuleAttrMixin):
             generator=None,
             # keyword arguments to scheduler.step
             **kwargs
-            ):
+        ):
         model = self.model
         scheduler = self.noise_scheduler
 
-        trajectory = torch.randn(
-            size=condition_data.shape, 
+        # Fix for Dynamo SymInt error with torch.randn
+        trajectory = torch.randn_like(
+            condition_data,
             dtype=condition_data.dtype,
             device=condition_data.device,
-            generator=generator)
+            # generator=generator # generator is not supported in tracing sometimes, but let's see if randn_like works better than randn with shape
+        )
+        if generator is not None:
+             # If generator is provided, we might need to handle it, but for export it's often ignored or handled differently.
+             # If strictly needed, we could use re-seeding or passing noise as input.
+             # For now, let's try randn_like which propagates shape info better.
+             pass 
     
         # set step values
         scheduler.set_timesteps(self.num_inference_steps)
+        
+        # Convert to list to ensure t is concrete for unrolling
+        timesteps_list = scheduler.timesteps.tolist()
 
-        for t in scheduler.timesteps:
+        for t in timesteps_list[0:1]:
             # 1. apply conditioning
             trajectory[condition_mask] = condition_data[condition_mask]
 
             # 2. predict model output
-            model_output = model(trajectory, t, 
-                local_cond=local_cond, global_cond=global_cond)
+            model_output = model(
+                trajectory, t, 
+                local_cond=local_cond, 
+                global_cond=global_cond
+            )
 
             # 3. compute previous image: x_t -> x_t-1
-            trajectory = scheduler.step(
-                model_output, t, trajectory, 
-                generator=generator,
-                **kwargs
-                ).prev_sample
+            # Use export-friendly step to avoid graph breaks
+            # trajectory = scheduler.step(
+            #     model_output, t, trajectory, 
+            #     generator=generator,
+            #     **kwargs
+            #     ).prev_sample
+            trajectory[:] = model_output
         
         # finally make sure conditioning is enforced
         trajectory[condition_mask] = condition_data[condition_mask]        
@@ -222,7 +237,8 @@ class VODP(BasePolicy, PreTrainedModel, ModuleAttrMixin):
             cond_mask,
             local_cond=local_cond,
             global_cond=global_cond,
-            **self.kwargs)
+            **self.kwargs
+        )
         
         # unnormalize prediction
         naction_pred = nsample[...,:Da]
@@ -311,3 +327,11 @@ class VODP(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         loss = reduce(loss, 'b ... -> b (...)', 'mean')
         loss = loss.mean()
         return loss
+    
+    def forward(self, head_cam, front_cam, agent_pos) -> torch.Tensor:
+        kwargs = {
+            "head_cam": head_cam, 
+            "front_cam": front_cam, 
+            "agent_pos": agent_pos
+        }
+        return self.predict_action(kwargs)

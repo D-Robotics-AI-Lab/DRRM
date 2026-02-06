@@ -116,19 +116,27 @@ class CNNAdapter(nn.Module):
         x: Tensor, 
         xpos: Tensor, 
         y: Tensor = None, 
-        ypos: Tensor = None
+        ypos: Tensor = None,
+        shape_grid: tuple = None
     ) -> Tensor:
         # x: [LBSV, H * W, C_In]
         # return: [LBSV, H'' * W'', C_Out]
         B, _, C = x.shape
-        H, W = (xpos[0,:,1]==0).sum().item(), (xpos[0,:,0]==0).sum().item()
+        if shape_grid is not None:
+             H, W = shape_grid
+        else:
+             H, W = (xpos[0,:,1]==0).sum().item(), (xpos[0,:,0]==0).sum().item()
+        
         if ypos:
             H_T, W_T = (ypos[0,:,1]==0).sum().item(), (ypos[0,:,0]==0).sum().item()
         else:
             assert self.shape_out, "Please input `shape_out` in init function or `y_pos` in forward function"
             H_T, W_T = self.shape_out
         x = x.view(B, H, W, C).permute(0, 3, 1, 2) # [B C_In, H，W]
-
+        
+        torch._check(x.size(1) * x.size(2) * x.size(3) <= 2147483647)
+        # Advance check for stride > 1
+        torch._check(max(1, 1 + ((-1 + x.shape[2]) // 2)) * max(1, 1 + ((-1 + x.shape[3]) // 2)) > 1) 
         x = self.downsample_convs(x) # [B, C_In, H'，W']
         x = self.patch_merging(x, (H_T, W_T)) # [B, H''，W'', C_Out]
         C =  x.shape[-1]
@@ -153,6 +161,15 @@ class ResBlock(nn.Module):
         self.act = ActFunc()
 
     def forward(self, x):
+        torch._check(x.size(2) >= 1)
+        torch._check(x.size(3) >= 1)
+        # Fix for data-dependent expression C*H*W > 2147483647
+        torch._check(x.size(1) * x.size(2) * x.size(3) <= 2147483647)
+        torch._check((1 + (((-1) + x.shape[3]) // 2))*(1024 + 1024*(((-1) + x.shape[2]) // 2)) <= 2147483647)
+        # Fix for data-dependent expression regarding strides > 1
+        torch._check(max(1, 1 + ((-1 + x.shape[2]) // 2)) * max(1, 1 + ((-1 + x.shape[3]) // 2)) > 1) 
+        torch._check(max(1, 1 + ((-1 + x.shape[2]) // 2)) > 1)
+        torch._check(max(1, 1 + ((-1 + x.shape[3]) // 2)) > 1) 
         out = self.mainstream(x)
         res = self.downsample(x)
         out += res
@@ -248,7 +265,14 @@ class ResNetAdapter(nn.Module):
         if not dim_ratio:
             dim_ratio = [2**i for i in range(1,len(stage_blocks)+1)]
         assert len(stage_blocks) == len(dim_ratio)
-        self.shape_out = shape_out
+        if shape_out is not None:
+            if hasattr(shape_out, 'count'): # check if list/tuple/ListConfig
+                self.shape_out = tuple(shape_out)
+            else:
+                self.shape_out = shape_out
+        else:
+             self.shape_out = None
+        
         self.dim_mid = [dim_in]
         self.stride_mid = []
         self.stage_idx = []
@@ -270,12 +294,17 @@ class ResNetAdapter(nn.Module):
         x: Tensor, 
         xpos: Tensor, 
         y: Tensor = None, 
-        ypos: Tensor = None
+        ypos: Tensor = None,
+        shape_grid: tuple = None
     ) -> Tensor:
         # x: [LBSV, H * W, C_In]
         # return: [LBSV, H'' * W'', C_Out]
         B, _, C = x.shape
-        H, W = (xpos[0,:,1]==0).sum().item(), (xpos[0,:,0]==0).sum().item()
+        if shape_grid is not None:
+             H, W = shape_grid
+        else:
+             H, W = (xpos[0,:,1]==0).sum().item(), (xpos[0,:,0]==0).sum().item()
+        
         if ypos:
             H_T, W_T = (ypos[0,:,1]==0).sum().item(), (ypos[0,:,0]==0).sum().item()
         else:
@@ -367,7 +396,7 @@ class Adapter(nn.Module):
             assert y
         if y: y = y.view((-1, P, D))
         if ypos: ypos = y.view((-1, P, 2))
-        output = self.adapter(x, xpos, y, ypos)
+        output = self.adapter(x, xpos, y, ypos, **kwargs)
         return output.view((*BSV, *output.shape[-2:])) # [BS, V, H'' * W'', C_Out]
 
 
