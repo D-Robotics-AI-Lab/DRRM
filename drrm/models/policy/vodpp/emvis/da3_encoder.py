@@ -99,9 +99,14 @@ class DA3Encoder(DepthAnything3):
         BS, V, C_in, H, W = images.shape
         if V_fake: images = images.view((-1, V_fake, C_in, H, W))
         
-        feats, aux_feats = self.model.da3.backbone(
-            images, cam_token=None, export_feat_layers=[]
-        )
+        if hasattr(self.model, "da3") and self.model.da3 is not None:
+            feats, aux_feats = self.model.da3.backbone(
+                images, cam_token=None, export_feat_layers=[]
+            )
+        else:
+            feats, aux_feats = self.model.backbone(
+                images, cam_token=None, export_feat_layers=[]
+            )
         aggregated_tokens_list = [feat[0] for feat in feats]
         patch_pos = self.position_getter(BS*V, H // self.patch_size, W // self.patch_size, device=images.device)
 
@@ -132,7 +137,7 @@ class DA3Encoder(DepthAnything3):
         
         return output
     
-    def da3_preprocess(self, images: torch.Tensor) -> torch.Tensor:
+    def da3_preprocess(self, images: torch.Tensor, process_res: int = 504) -> torch.Tensor:
         """Preprocess input images for DA3 model.
 
         Args:
@@ -144,7 +149,7 @@ class DA3Encoder(DepthAnything3):
         images = images.cpu().numpy()
         images = [(images[i]*255).astype(np.uint8).transpose(1, 2, 0) for i in range(images.shape[0])]
         imgs_cpu, extrinsics, intrinsics = self._preprocess_inputs(
-            images, None, None, 504, "upper_bound_resize"
+            images, None, None, process_res, "upper_bound_resize"
         )
         images, ex_t, in_t = self._prepare_model_inputs(imgs_cpu, extrinsics, intrinsics)
         images = images.reshape((-1, *images.shape[2:]))

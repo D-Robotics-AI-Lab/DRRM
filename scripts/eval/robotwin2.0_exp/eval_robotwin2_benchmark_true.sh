@@ -17,6 +17,6 @@ policy="${config/_*/}"
 for task in "${task_list[@]}"; do
     for config in "${config_list[@]}"; do
         echo $task $config $model_config
-        ./scripts/eval/eval_robotwin2.0_parallel.sh $policy_config $task $config $model_config $demo 16
+        ./scripts/eval/eval_robotwin2.0_parallel.sh $policy_config $task $config $model_config $demo 4
     done
 done

@@ -32,14 +32,26 @@ class DimInjector(nn.Module):
 
         # VGGT Fusion
         if fuse_3d:
-            fuser_config = {
-                'input_dim_list': [(idx, dim_3d) for idx in self.intermediate_layer_idx],
-                'dim_out': dim_out,
-                'mlp_ratio': mlp_ratio,
-                'ffn_layer_num': ffn_layer_num,
-                'drop_p': drop_p,
-            }
-            self.vggt_fuser = DimFuser(**fuser_config)
+            # fuser_config = {
+            #     'input_dim_list': [(idx, dim_3d) for idx in self.intermediate_layer_idx],
+            #     'dim_out': dim_out,
+            #     'mlp_ratio': mlp_ratio,
+            #     'ffn_layer_num': ffn_layer_num,
+            #     'drop_p': drop_p,
+            # }
+            # self.vggt_fuser = DimFuser(**fuser_config)
+            self.local_fuser = get_proj_layer('MLP', dim_3d//2, dim_out//2)
+            self.global_fuser = get_proj_layer('MLP', dim_3d//2, dim_out//2)
+            def vggt_fuser(x):
+                assert len(self.intermediate_layer_idx) == 1
+                x = x.squeeze(0)
+                if dim_3d != dim_out:
+                    x = torch.cat([
+                        self.local_fuser(x[...,:dim_3d//2]), 
+                        self.global_fuser(x[...,dim_3d//2:])
+                    ], dim=-1)
+                return x
+            self.vggt_fuser = vggt_fuser
         else: 
             def vggt_fuser(x):
                 assert len(self.intermediate_layer_idx) == 1
@@ -63,18 +75,30 @@ class DimInjector(nn.Module):
         # }
         # self.vggt_attn = AttnFuser(**fuser_config) if attn_3d else nn.Identity
         # 2D 3D Fusion
-        fuser_config = {
-            'input_dim_list': [('3D', dim_out), ('2D', dim_2d)],
-            'dim_out': dim_out,
-            'mlp_ratio': mlp_ratio,
-            'ffn_layer_num': ffn_layer_num,
-            'drop_p': drop_p,
-            ** kwargs
-        }
-        # self.modality_fuser = DimFuser(**fuser_config) if fuse_2d else nn.Identity
-        self.modality_fuser = AttnFuser(**fuser_config) if fuse_2d else nn.Identity
+        if fuse_2d:
+            fuser_config = {
+                'input_dim_list': [('3D', dim_out), ('2D', dim_2d)],
+                'dim_out': dim_out,
+                'mlp_ratio': mlp_ratio,
+                'ffn_layer_num': ffn_layer_num,
+                'drop_p': drop_p,
+                ** kwargs
+            }
+            # self.modality_fuser = DimFuser(**fuser_config) if fuse_2d else nn.Identity
+            self.modality_fuser = AttnFuser(**fuser_config)
+        else:
+            fuser_config = {
+                '__target__': 'MLP',
+                'dim_in': dim_out,
+                'dim_out': dim_out,
+                'mlp_ratio': mlp_ratio,
+                'layer_num': ffn_layer_num,
+                'drop_p': drop_p,
+            }
+            self.modality_fuser = get_proj_layer(**fuser_config)
 
-        self.post_norm = nn.LayerNorm(dim_out) if ffn_layer_num != 0 and (fuse_3d or fuse_2d) else nn.Identity()
+        # self.post_norm = nn.LayerNorm(dim_out) if ffn_layer_num != 0 and (fuse_3d or fuse_2d) else nn.Identity()
+        self.post_norm = nn.LayerNorm(dim_out)
     
     def forward(self, tokens_3d_list, tokens_2d = None, pos_3d = None, pos_2d = None):
         """
@@ -112,15 +136,17 @@ class DimInjector(nn.Module):
         # if self.attn_3d:
         #     fused_tokens = self.vggt_attn(fused_tokens, fused_tokens, pos_3d, pos_3d)
         # 2D 3D Fusion
-        if self.fuse_2d:
-            if isinstance(self.modality_fuser, DimFuser):
-                fused_tokens = self.modality_fuser([fused_tokens, tokens_2d])
-            elif isinstance(self.modality_fuser, AttnFuser):
-                if self.query2d:
-                    fused_tokens = self.modality_fuser(tokens_2d, fused_tokens, pos_2d, pos_3d) # 2D query 3D
-                else:
-                    fused_tokens = self.modality_fuser(fused_tokens, tokens_2d, pos_3d, pos_2d) # 3D query 2D
-        
+        # if self.fuse_2d:
+        if isinstance(self.modality_fuser, DimFuser):
+            fused_tokens = self.modality_fuser([fused_tokens, tokens_2d])
+        elif isinstance(self.modality_fuser, AttnFuser):
+            if self.query2d:
+                fused_tokens = self.modality_fuser(tokens_2d, fused_tokens, pos_2d, pos_3d) # 2D query 3D
+            else:
+                fused_tokens = self.modality_fuser(fused_tokens, tokens_2d, pos_3d, pos_2d) # 3D query 2D
+        else:
+            fused_tokens = self.modality_fuser(fused_tokens)
         fused_tokens = self.post_norm(fused_tokens)
+
         _, _, D = fused_tokens.shape
         return fused_tokens.view(BS, V3d, P, D) # [B * S, V3d, P, D]

@@ -16,7 +16,7 @@ shape_meta:
       type: low_dim
       
 mixed_precision: "bf16"
-output_dir: "checkpoints/vodpp/${train_dataset.task}_${train_dataset.demo}/invdit_fm_da3_1f"
+output_dir: "checkpoints/vodpp/${train_dataset.task}_${train_dataset.demo}/invdit_fm_da3_1f_308"
 
 model:
   block_type: invblock
@@ -31,7 +31,7 @@ model:
       load_vggt_heads: false
       load_vggt_pretrain: true
       vggt_model_path: pretrained/DA3NESTED-GIANT-LARGE
-      interpolate: 'bilinear'
+      interpolate: 308
       mlp_ratio: 1.0
       drop_p: 0.0
       ft_heads: []

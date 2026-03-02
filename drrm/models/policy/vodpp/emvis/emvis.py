@@ -103,13 +103,36 @@ class EmVisRM(nn.Module):
             self.img_processing = partial(preprocess_images, interpolate=interpolate)
         elif self.vggt_target == 'da3':
             from .da3_encoder import DA3Encoder
+            # 读 vggt_model_path 下面的config.json 获取 model_name
+            import json
+            with open(os.path.join(vggt_model_path, "config.json"), "r") as f:
+                config = json.load(f)
+                model_name = config.get("model_name", vggt_model_path)
             self.vggt_encoder = DA3Encoder(
                 ft_layer_idx = ft_layer_idx,
                 intermediate_layer_idx=intermediate_layer_idx,
                 dim_keys = dim_3d_keys,
+                model_name = model_name
             )
-            self.vggt_heads = None
-            self.img_processing = self.vggt_encoder.da3_preprocess
+            if hasattr(self.vggt_encoder.model, 'da3'):
+                self.vggt_encoder.model.da3.head = None
+                self.vggt_encoder.model.da3.cam_enc = None
+                self.vggt_encoder.model.da3.cam_dec = None
+                self.vggt_encoder.model.da3.gs_head = None
+                self.vggt_encoder.model.da3_metric = None
+                self.vggt_heads = None
+            else:
+                self.vggt_encoder.model.head = None
+                self.vggt_encoder.model.cam_enc = None
+                self.vggt_encoder.model.cam_dec = None
+                self.vggt_encoder.model.gs_head = None
+                self.vggt_encoder.model.gs_adapter = None
+                self.vggt_heads = None
+                
+            if isinstance(interpolate, int):
+                self.img_processing = partial(self.vggt_encoder.da3_preprocess, process_res=interpolate)
+            else:
+                self.img_processing = self.vggt_encoder.da3_preprocess
         else:
             from .vggt_encoder import VGGTEncoder
             from .vggt_heads import VGGTHead
@@ -122,6 +145,7 @@ class EmVisRM(nn.Module):
                 ft_heads = ft_heads,
                 heads=vggt_heads_list
             )
+            # self.vggt_heads = None
             self.img_processing = partial(preprocess_images, interpolate=interpolate)
         if load_vggt_pretrain:
             self.vggt_encoder.load_pretrained_model(vggt_model_path)
