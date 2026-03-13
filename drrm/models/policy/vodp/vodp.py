@@ -163,7 +163,7 @@ class VODP(BasePolicy, PreTrainedModel, ModuleAttrMixin):
 
         for t in timesteps_list[0:1]:
             # 1. apply conditioning
-            trajectory[condition_mask] = condition_data[condition_mask]
+            trajectory = torch.where(condition_mask, condition_data, trajectory)
 
             # 2. predict model output
             model_output = model(
@@ -179,10 +179,10 @@ class VODP(BasePolicy, PreTrainedModel, ModuleAttrMixin):
             #     generator=generator,
             #     **kwargs
             #     ).prev_sample
-            trajectory[:] = model_output
+            trajectory = model_output
         
         # finally make sure conditioning is enforced
-        trajectory[condition_mask] = condition_data[condition_mask]        
+        trajectory = torch.where(condition_mask, condition_data, trajectory)        
 
         return trajectory
 

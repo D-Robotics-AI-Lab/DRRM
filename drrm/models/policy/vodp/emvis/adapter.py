@@ -42,13 +42,20 @@ class AdaptivePatchMerging(nn.Module):
             self.drop = nn.Dropout(drop)
         else:
             # self.adapter = nn.AdaptiveAvgPool2d(shape_out)
-            self.adapter = nn.AdaptiveMaxPool2d if use_max_pool else nn.AdaptiveAvgPool2d
+            # self.adapter = nn.AdaptiveMaxPool2d if use_max_pool else nn.AdaptiveAvgPool2d
+            self.adapter = nn.MaxPool2d if use_max_pool else nn.AvgPool2d
             self.proj = nn.Linear(dim_in, dim_out, bias=bias)
             self.drop = nn.Dropout(drop)
 
     def forward(self, x: Tensor, shape_out: Tuple[int, int]) -> Tensor:
         # x: [B * S * V, C_In, H'，W']
-        x = self.adapter(shape_out)(x) # [B * S * V, C_In, H''，W'']
+        # x = self.adapter(shape_out)(x) # [B * S * V, C_In, H''，W'']
+        # 基于x的shape和shape_out计算适配器的参数
+        H_in, W_in = x.shape[-2:]
+        H_out, W_out = shape_out
+        s_h, s_w = H_in // H_out, W_in // W_out
+        k_h, k_w = H_in - (H_out - 1) * s_h, W_in - (W_out - 1) * s_w
+        x = self.adapter(kernel_size=(k_h, k_w), stride=(s_h, s_w))(x) # [B * S * V, C_In, H''，W'']
         x = x.permute(0, 2, 3, 1) # [B * S * V, H''，W'', C_In]
         x = self.proj(x) # [B * S * V, H''，W'', C_Out]
         x = self.drop(x)

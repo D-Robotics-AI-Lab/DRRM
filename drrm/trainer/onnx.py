@@ -5,6 +5,7 @@ from pathlib import Path
 import random
 from xml.parsers.expat import model
 import hydra
+import netron
 import numpy as np
 from omegaconf import OmegaConf
 
@@ -293,7 +294,7 @@ def export_basepolicy_to_onnx(model, dummy_input, onnx_save_path, opset_version=
             opset_version=opset_version,
             # 输入输出命名（方便后续部署识别）
             input_names=["head_cam", "front_cam", "agent_pos"],
-            output_names=["action"],
+            output_names=["action", "action_pred"],
             # 动态维度配置（支持任意batch_size/seq_len，必配！）
             dynamic_axes={
                 "head_cam": {0: "batch_size", 1: "seq_len"},
@@ -313,61 +314,92 @@ def export_basepolicy_to_onnx(model, dummy_input, onnx_save_path, opset_version=
         #     print(f"⚠️ ONNX导出失败：{e}")
     print(f"✅ 模型导出完成！路径：{onnx_save_path} | opset版本：{opset_version}")
 
-def onnx(args, logger):
-    # task_name, expert_data_num, ckpt_setting, checkpoint_num
-    set_seed(args.seed)
-    prefix = f"{args.ckpt_setting}"
-    checkpoint_dir = f"checkpoints/vodp_{args.task_name}_{args.expert_data_num}_{args.ckpt_setting}"
-    if not os.path.exists(checkpoint_dir):
-        checkpoint_dir = f"checkpoints/vodp/{args.task_name}_{args.expert_data_num}/{args.ckpt_setting}"
-    if args.get('checkpoint_num', None) is not None:
-        checkpoint_dir = f"{checkpoint_dir}/checkpoint-{args.checkpoint_num}"
-        prefix = f"{prefix}_ckp{args.checkpoint_num}"
-    policy_model = load_policy(checkpoint_dir, use_ckp_code=False, device='cuda')
-    policy_model = policy_model.float()
-    prefix = f"{prefix}_opset19"
+# def onnx(args, logger):
+#     # task_name, expert_data_num, ckpt_setting, checkpoint_num
+#     set_seed(args.seed)
+#     prefix = f"{args.ckpt_setting}"
+#     checkpoint_dir = f"checkpoints/vodp_{args.task_name}_{args.expert_data_num}_{args.ckpt_setting}"
+#     if not os.path.exists(checkpoint_dir):
+#         checkpoint_dir = f"checkpoints/vodp/{args.task_name}_{args.expert_data_num}/{args.ckpt_setting}"
+#     if args.get('checkpoint_num', None) is not None:
+#         checkpoint_dir = f"{checkpoint_dir}/checkpoint-{args.checkpoint_num}"
+#         prefix = f"{prefix}_ckp{args.checkpoint_num}"
+#     policy_model = load_policy(checkpoint_dir, use_ckp_code=False, device='cuda')
+#     policy_model = policy_model.float()
+#     prefix = f"{prefix}_opset19"
     
-    # Dataset and DataLoaders creation
-    train_dataset = hydra.utils.instantiate(args.train_dataset)
-    val_dataset = train_dataset.get_validation_dataset()
+#     # Dataset and DataLoaders creation
+#     train_dataset = hydra.utils.instantiate(args.train_dataset)
+#     val_dataset = train_dataset.get_validation_dataset()
     
-    # val_dataset.detail_item = True
-    seq_sampler = SequentialStrideSampler(val_dataset, stride=7)
-    batch_sampler = BatchSampler(seq_sampler, batch_size=1, drop_last=False)
-    val_dataloader = torch.utils.data.DataLoader(
-        val_dataset,
-        batch_sampler=batch_sampler,
-        num_workers=4,
-        pin_memory=True,
-        persistent_workers=True,
-    )
+#     # val_dataset.detail_item = True
+#     seq_sampler = SequentialStrideSampler(val_dataset, stride=7)
+#     batch_sampler = BatchSampler(seq_sampler, batch_size=1, drop_last=False)
+#     val_dataloader = torch.utils.data.DataLoader(
+#         val_dataset,
+#         batch_sampler=batch_sampler,
+#         num_workers=4,
+#         pin_memory=True,
+#         persistent_workers=True,
+#     )
     
-    with torch.no_grad():
-        with torch.autocast(device_type=str(policy_model.device), dtype=torch.float32):
-            for step, batch in enumerate(tqdm(val_dataloader)):
-                if step >= 1: break  # 仅验证一个batch
-                # sample_batch = {k: v.repeat(4, *([1] * (v.dim() - 1))).float() for k, v in batch['obs'].items()}
-                sample_batch = {k: v.float() for k, v in batch['obs'].items()}
-                sample_batch.pop('endpose')
+#     with torch.no_grad():
+#         with torch.autocast(device_type=str(policy_model.device), dtype=torch.float32):
+#             for step, batch in enumerate(tqdm(val_dataloader)):
+#                 if step >= 1: break  # 仅验证一个batch
+#                 # sample_batch = {k: v.repeat(4, *([1] * (v.dim() - 1))).float() for k, v in batch['obs'].items()}
+#                 sample_batch = {k: v.float()[:,:1,...] for k, v in batch['obs'].items()}
+#                 sample_batch.pop('endpose')
 
-                # result = policy_model.predict_action(sample_batch)
-                result = policy_model(**sample_batch)
+#                 # result = policy_model.predict_action(sample_batch)
+#                 result = policy_model(**sample_batch)
+#                 result = [v.cpu().numpy() for k, v in result.items()]
 
-                export_basepolicy_to_onnx(
-                    model=policy_model,
-                    dummy_input=sample_batch,
-                    onnx_save_path=f"{prefix}.onnx",
-                    opset_version=19
-                )
+#                 export_basepolicy_to_onnx(
+#                     model=policy_model,
+#                     dummy_input=sample_batch,
+#                     onnx_save_path=f"{prefix}.onnx",
+#                     opset_version=19
+#                 )
 
-                # ONNX Runtime推理结果
-                ort_sess = ort.InferenceSession(
-                    f"{prefix}.onnx",
-                    providers=["CPUExecutionProvider"]  # GPU可用："CUDAExecutionProvider"
-                )
-                ort_inputs = {k: v.cpu().numpy() for k, v in sample_batch.items()}
-                ort_out = ort_sess.run(["action"], ort_inputs)[0]
+#                 # ONNX Runtime推理结果
+#                 ort_sess = ort.InferenceSession(
+#                     f"{prefix}.onnx",
+#                     providers=["CPUExecutionProvider"]  # GPU可用："CUDAExecutionProvider"
+#                 )
+#                 ort_inputs = {k: v.cpu().numpy() for k, v in sample_batch.items()}
+#                 ort_out = ort_sess.run(["action", "action_pred"], ort_inputs)
                 
-                # 数值一致性校验（误差<1e-5即合格）
-                np.testing.assert_allclose(result, ort_out, rtol=1e-5, atol=1e-5)
-                print("✅ ONNX模型验证通过！PyTorch与ONNX推理结果一致")
+#                 # 数值一致性校验（误差<1e-5即合格）
+#                 np.testing.assert_allclose(result['action'], ort_out[0], rtol=1e-5, atol=1e-5)
+#                 np.testing.assert_allclose(result['action_pred'], ort_out[1], rtol=1e-5, atol=1e-5)
+#                 print("✅ ONNX模型验证通过！PyTorch与ONNX推理结果一致")
+
+
+def onnx(args, logger):
+    sess = ort.InferenceSession("film_23d_1f_opset19.onnx", providers=['CPUExecutionProvider'])
+    input_names = [inp.name for inp in sess.get_inputs()]
+    output_names = [out.name for out in sess.get_outputs()]
+    # 构造输入
+    data1 = np.random.rand(1, 1, 3, 240, 320).astype(np.float32)
+    data2 = np.random.rand(1, 1, 3, 240, 320).astype(np.float32)
+    data3 = np.random.rand(1, 1, 14).astype(np.float32)
+    # 组织输入字典
+    input_feed = {
+        input_names[0]: data1,
+        input_names[1]: data2,
+        input_names[2]: data3,
+    }
+    # 推理
+    output = sess.run(output_names, input_feed)
+    print("infer success")
+
+    # model_path = "film_23d_1f_opset19.onnx"
+    # # 检查文件是否存在，避免报错
+    # if os.path.exists(model_path):
+    #     print(f"正在加载模型: {model_path}")
+    #     # 启动 Netron 可视化
+    #     netron.start(model_path, address=("localhost", 8081), browse=False)
+    # else:
+    #     print(f"错误：找不到文件 '{model_path}'。请确保该文件与脚本在同一目录下，或提供绝对路径。")
+    # input()
