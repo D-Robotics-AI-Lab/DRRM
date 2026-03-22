@@ -62,17 +62,20 @@ class EmVisRM(nn.Module):
         drop_p = 0.,
         ffn_layer_num = 1,
         # preprocessing config
+        processor_config: Dict = {},
         interpolate: str = 'bilinear', # None nearest bilinear(default) bicubic
         # feature config
         only_2d: bool = False,
         seq_as_view: bool = False,
         view_as_seq: bool = False,
+        return_predict: bool = False,
+        only_first_view: bool = False,
+        # vggt config
         intermediate_layer_idx: List = [4, 11, 17, 23],
         ft_layer_idx: List = [],
         vggt_heads_list: List = ['camera_head', 'point_head', 'depth_head', 'track_head'],
         ft_heads: List = [],
-        return_predict: bool = False,
-        only_first_view: bool = False,
+        vggt_config: Dict = {},
         # module config
         injector_config: Dict = {},
         model_adapter_config: Dict = None,
@@ -133,6 +136,29 @@ class EmVisRM(nn.Module):
                 self.img_processing = partial(self.vggt_encoder.da3_preprocess, process_res=interpolate)
             else:
                 self.img_processing = self.vggt_encoder.da3_preprocess
+        elif 'dinov3' in self.vggt_target:
+            if 'cnn' in self.vggt_target:
+                from .dinov3cnn_encoder import DINOv3Encoder
+                from transformers import DINOv3ConvNextConfig as DINOv3Config
+            else:
+                from .dinov3_encoder import DINOv3Encoder
+                from transformers import DINOv3ViTConfig as DINOv3Config
+            from transformers import DINOv3ViTImageProcessorFast
+            from transformers import AutoImageProcessor, AutoModel, AutoConfig
+            if vggt_config:
+                config = DINOv3Config(**vggt_config)
+            else:
+                config = AutoConfig.from_pretrained(f"{vggt_model_path}")
+                vggt_config.update(config.to_diff_dict())
+
+            if processor_config:
+                processor =  DINOv3ViTImageProcessorFast(**processor_config)
+            else:
+                processor = AutoImageProcessor.from_pretrained(f"{vggt_model_path}")
+                processor_config.update(processor.to_dict())
+            self.vggt_encoder = DINOv3Encoder(config)
+            self.vggt_heads = None
+            self.img_processing = lambda x: processor(x, return_tensors="pt")['pixel_values']
         else:
             from .vggt_encoder import VGGTEncoder
             from .vggt_heads import VGGTHead
@@ -224,7 +250,6 @@ class EmVisRM(nn.Module):
             f"  Trainable Ratio: {trainable_ratio:.2f}%\n"
             f"{params_state}"
         )
-        
         logger.info(log_msg)
         self.return_predict = return_predict
     

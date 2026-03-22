@@ -1,0 +1,48 @@
+defaults:
+  - vodpp_dit_ddpm
+  - _self_
+n_obs_steps: 1
+
+shape_meta:
+  obs:
+    head_cam:
+      shape: ${image_shape}
+      type: rgb
+    front_cam:
+      shape: ${image_shape}
+      type: rgb
+    agent_pos:
+      shape: [14]
+      type: low_dim
+      
+mixed_precision: "bf16"
+output_dir: ${base_dir}_dinov3b_2d_1f
+
+model:
+  obs_encoder:
+    state_key: null
+    # rgb_key: ["head_cam", "front_cam"]
+    emvis_config:
+      processor_config: {}
+      dim_2d: 768
+      # dim_3d_keys: ['frame', 'global']
+      # load_vggt_heads: true
+      load_vggt_pretrain: true
+      only_2d: true
+      vggt_target: 'dinov3'
+      vggt_model_path: pretrained/dinov3-vitb16-pretrain-lvd1689m
+      vggt_config: {}
+      mlp_ratio: 1.0
+      drop_p: 0.0
+      ft_heads: []
+      ft_layer_idx: []
+      # intermediate_layer_idx: [23]
+      seq_as_view: False
+      only_first_view: True
+      injector_config: {}
+      model_adapter_config:
+        target: ResNetAdapter
+        shape_out: [2, 2]
+        dim_out: 1024
+        conv_num: 3
+      mv_fuser_config: {}

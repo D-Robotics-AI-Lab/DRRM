@@ -9,7 +9,8 @@ task_list=(
     # 'blocks_ranking_size'
 )
 config_list=(
-    'agilex_config' 'agilex_config_mid' 'agilex_config_hard'
+    'agilex_config'
+    # 'agilex_config_mid' 'agilex_config_hard'
 )
 demo=100
 

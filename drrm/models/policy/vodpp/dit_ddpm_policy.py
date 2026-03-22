@@ -82,7 +82,9 @@ class VODPPlusDitDDPM(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         }
         self.noise_scheduler = hydra.utils.instantiate(noise_scheduler)
         self.noise_scheduler_sample = hydra.utils.instantiate(config.noise_scheduler_sample)
-        self.obs_encoder = hydra.utils.instantiate(config.obs_encoder)
+        # self.obs_encoder = hydra.utils.instantiate(config.obs_encoder, _recursive_=False, _convert_="none")
+        EncoderClass = hydra.utils.get_class(config.obs_encoder['_target_'])
+        self.obs_encoder = EncoderClass(**config.obs_encoder)
 
         action_shape = config.shape_meta['action']['shape']
         horizon = config.horizon
