@@ -1,7 +1,7 @@
 #!/bin/bash
 # task_list=(
-#     'adjust_bottle' 'blocks_ranking_rgb' 'blocks_ranking_size'
-#     'click_alarmclock' 'click_bell'
+#     'adjust_bottle' 'beat_block_hammer' 'blocks_ranking_rgb'
+#       'blocks_ranking_size' 'click_alarmclock' 'click_bell'
 # )
 task_list=('hanging_mug' 'move_stapler_pad' 'place_a2b_left'       
     'place_can_basket' 'place_fan' 'place_phone_stand' 'rotate_qrcode' 'stack_blocks_two'
@@ -25,7 +25,6 @@ task_list=('hanging_mug' 'move_stapler_pad' 'place_a2b_left'
 #     'click_alarmclock' 'handover_mic' 'move_playingcard_away' 'pick_dual_bottles' 'place_burger_fries'   
 #     'place_empty_cup' 'place_object_stand' 'put_object_cabinet' 'stack_blocks_three' 'turn_switch'
 # )
-# 'beat_block_hammer'
 
 cd simulation/robotwin2.0/
 for task in "${task_list[@]}"; do
