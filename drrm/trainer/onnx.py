@@ -380,9 +380,10 @@ def onnx(args, logger):
                 samples.append({**ort_inputs})
                 
                 # 数值一致性校验（误差<1e-5即合格）
-                # np.testing.assert_allclose(gt, ort_out[0], rtol=1e-5, atol=1e-5)
+                np.testing.assert_allclose(ort_out[0], result[0], rtol=1e-5, atol=1e-5)
+                np.testing.assert_allclose(ort_out[1], result[1], rtol=1e-5, atol=1e-5)
                 # np.testing.assert_allclose(gt, ort_out[1], rtol=1e-5, atol=1e-5)
-                # print("✅ ONNX模型验证通过！PyTorch与ONNX推理结果一致")
+                print("✅ ONNX模型验证通过！PyTorch与ONNX推理结果一致")
             if not os.path.exists(f"./onnx/{prefix}_samples"):
                 os.mkdir(f"./onnx/{prefix}_samples")
             for i, item in enumerate(samples):
