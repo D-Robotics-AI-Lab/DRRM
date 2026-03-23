@@ -139,9 +139,10 @@ class VODP(BasePolicy, PreTrainedModel, ModuleAttrMixin):
             # keyword arguments to scheduler.step
             **kwargs
         ):
-        model = self.model
+        # model = self.model
         scheduler = self.noise_scheduler
 
+        
         # Fix for Dynamo SymInt error with torch.randn
         trajectory = torch.randn_like(
             condition_data,
@@ -149,6 +150,10 @@ class VODP(BasePolicy, PreTrainedModel, ModuleAttrMixin):
             device=condition_data.device,
             # generator=generator # generator is not supported in tracing sometimes, but let's see if randn_like works better than randn with shape
         )
+        if 'noise_trajectory' in kwargs:
+            noise_trajectory = kwargs['noise_trajectory']
+            trajectory[:] = noise_trajectory
+
         if generator is not None:
              # If generator is provided, we might need to handle it, but for export it's often ignored or handled differently.
              # If strictly needed, we could use re-seeding or passing noise as input.
@@ -166,7 +171,7 @@ class VODP(BasePolicy, PreTrainedModel, ModuleAttrMixin):
             trajectory = torch.where(condition_mask, condition_data, trajectory)
 
             # 2. predict model output
-            model_output = model(
+            model_output = self.model(
                 trajectory, t, 
                 local_cond=local_cond, 
                 global_cond=global_cond
@@ -187,7 +192,7 @@ class VODP(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         return trajectory
 
 
-    def predict_action(self, obs_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def predict_action(self, obs_dict: Dict[str, torch.Tensor], noise_trajectory: torch.Tensor) -> Dict[str, torch.Tensor]:
         """
         obs_dict: must include "obs" key
         result: must include "action" key
@@ -237,6 +242,7 @@ class VODP(BasePolicy, PreTrainedModel, ModuleAttrMixin):
             cond_mask,
             local_cond=local_cond,
             global_cond=global_cond,
+            noise_trajectory=noise_trajectory,
             **self.kwargs
         )
         
@@ -245,7 +251,7 @@ class VODP(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         action_pred = self.normalizer['action'].unnormalize(naction_pred)
 
         # get action
-        start = To - 1
+        start = To
         end = start + self.n_action_steps
         action = action_pred[:,start:end]
         
@@ -328,10 +334,9 @@ class VODP(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         loss = loss.mean()
         return loss
     
-    def forward(self, head_cam, front_cam, agent_pos) -> torch.Tensor:
-        kwargs = {
-            "head_cam": head_cam, 
-            "front_cam": front_cam, 
+    def forward(self, head_cam, agent_pos, noise_trajectory) -> torch.Tensor:
+        obs_dict = {
+            "head_cam": head_cam,
             "agent_pos": agent_pos
         }
-        return self.predict_action(kwargs)
+        return self.predict_action(obs_dict, noise_trajectory)

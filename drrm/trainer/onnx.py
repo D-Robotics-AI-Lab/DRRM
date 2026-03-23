@@ -5,7 +5,7 @@ from pathlib import Path
 import random
 from xml.parsers.expat import model
 import hydra
-import netron
+# import netron
 import numpy as np
 from omegaconf import OmegaConf
 
@@ -293,14 +293,15 @@ def export_basepolicy_to_onnx(model, dummy_input, onnx_save_path, opset_version=
             # 核心配置：指定opset版本<=19
             opset_version=opset_version,
             # 输入输出命名（方便后续部署识别）
-            input_names=["head_cam", "front_cam", "agent_pos"],
+            input_names=["head_cam", "agent_pos", "noise_trajectory"],
             output_names=["action", "action_pred"],
             # 动态维度配置（支持任意batch_size/seq_len，必配！）
             dynamic_axes={
-                "head_cam": {0: "batch_size", 1: "seq_len"},
-                "front_cam": {0: "batch_size", 1: "seq_len"},
-                "agent_pos": {0: "batch_size", 1: "seq_len"},
-                "action": {0: "batch_size"}
+                "head_cam": {0: "batch_size"},
+                "agent_pos": {0: "batch_size"},
+                "noise_trajectory": {0: "batch_size"},
+                "action": {0: "batch_size"},
+                "action_pred": {0: "batch_size"}
             },
             # 兼容性配置
             do_constant_folding=True,  # 常量折叠（提升推理效率）
@@ -352,15 +353,20 @@ def onnx(args, logger):
                 sample_batch = {k: v.float()[:,:1,...] for k, v in batch['obs'].items()}
                 gt = batch['obs']['agent_pos'].cpu().numpy()
                 sample_batch.pop('endpose')
+                sample_batch.pop('front_cam')
+                sample_batch['noise_trajectory'] = torch.randn(
+                    1, policy_model.n_action_steps, policy_model.action_dim, 
+                    device=policy_model.device
+                )
 
-                result = policy_model.predict_action(sample_batch)
-                # result = policy_model(**sample_batch)
+                # result = policy_model.predict_action(sample_batch)
+                result = policy_model(**sample_batch)
                 result = [v.cpu().numpy() for k, v in result.items()]
 
                 # export_basepolicy_to_onnx(
                 #     model=policy_model,
                 #     dummy_input=sample_batch,
-                #     onnx_save_path=f"{prefix}.onnx",
+                #     onnx_save_path=f"./onnx/{prefix}.onnx",
                 #     opset_version=19
                 # )
 
@@ -377,9 +383,10 @@ def onnx(args, logger):
                 # np.testing.assert_allclose(gt, ort_out[0], rtol=1e-5, atol=1e-5)
                 # np.testing.assert_allclose(gt, ort_out[1], rtol=1e-5, atol=1e-5)
                 # print("✅ ONNX模型验证通过！PyTorch与ONNX推理结果一致")
-            os.mkdir(f"./onnx/{prefix}_samples")
+            if not os.path.exists(f"./onnx/{prefix}_samples"):
+                os.mkdir(f"./onnx/{prefix}_samples")
             for i, item in enumerate(samples):
-                os.mkdir(f"./onnx/{prefix}_samples/{i}")
+                # os.mkdir(f"./onnx/{prefix}_samples/{i}")
                 for k in item.keys():
                     np.save(f"./onnx/{prefix}_samples/{i}/{k}.npy", item[k])
             print("ONNX export and inference test completed.")
