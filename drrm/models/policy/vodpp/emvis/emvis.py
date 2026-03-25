@@ -174,7 +174,8 @@ class EmVisRM(nn.Module):
             self.img_processing = partial(preprocess_images, interpolate=interpolate)
         if load_vggt_pretrain:
             self.vggt_encoder.load_pretrained_model(vggt_model_path)
-            self.vggt_heads.load_pretrained_model(vggt_model_path)
+            if self.vggt_heads != None: 
+                self.vggt_heads.load_pretrained_model(vggt_model_path)
 
         self.visualize = visualize
         self.intermediate_layer_idx = intermediate_layer_idx
