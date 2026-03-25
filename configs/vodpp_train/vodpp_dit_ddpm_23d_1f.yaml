@@ -16,7 +16,7 @@ shape_meta:
       type: low_dim
       
 mixed_precision: "bf16"
-output_dir: "checkpoints/vodpp/${train_dataset.task}_${train_dataset.demo}/dit_ddpm_23d_1f"
+output_dir: "${base_dir}_vggt_23d_1f"
 
 model:
   obs_encoder:
