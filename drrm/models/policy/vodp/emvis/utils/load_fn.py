@@ -175,6 +175,11 @@ def preprocess_images(origin_images: torch.Tensor, mode=MODE, interpolate=None):
     """
     assert len(origin_images.shape) == 4, "The shape of images should be (N, 3, H, W)"
     N, C_in, H, W = origin_images.shape
+    if isinstance(N, torch.Tensor):
+        N = N.item()
+        C_in = C_in.item()
+        H = H.item()
+        W = W.item()
     assert C_in == 3, "Only accept RGB images and the shape should be (N, 3, H, W)"
     
     # Validate mode
@@ -192,6 +197,8 @@ def preprocess_images(origin_images: torch.Tensor, mode=MODE, interpolate=None):
         interpolate = ('bilinear', interpolate)
     if interpolate:
         interstr, t_size = interpolate
+        if isinstance(t_size, torch.Tensor):
+            t_size = t_size.item()
         height, width = get_resize_shape(H, W, t_size if t_size else W)
         if interstr=='bicubic':
             intermod = transforms.InterpolationMode.BICUBIC
@@ -210,65 +217,32 @@ def preprocess_images(origin_images: torch.Tensor, mode=MODE, interpolate=None):
         height, width = H, W
         resize = lambda x: x
 
-    for i in range(N):
-        img = origin_images[i] # (3, H, W)
-        img = resize(img)
-        img = torch.clamp(img, min=0, max=1.0)
+    # Vectorized processing
+    images = resize(origin_images)
+    images = torch.clamp(images, min=0.0, max=1.0)
+    
+    if mode == "pad":
+        max_size = round(max(width, height) // 14) * 14
+        h_padding = max_size - height
+        w_padding = max_size - width
         
-        if mode == "pad":
-            max_size = round(max(width, height) // 14) * 14
-            h_padding = max_size - height
-            w_padding = max_size - width
+        if h_padding > 0 or w_padding > 0:
+            pad_top = h_padding // 2
+            pad_bottom = h_padding - pad_top
+            pad_left = w_padding // 2
+            pad_right = w_padding - pad_left
             
-            if h_padding > 0 or w_padding > 0:
-                pad_top = h_padding // 2
-                pad_bottom = h_padding - pad_top
-                pad_left = w_padding // 2
-                pad_right = w_padding - pad_left
-                
-                # Pad with white (value=1.0)
-                img = torch.nn.functional.pad(
-                    img, (pad_left, pad_right, pad_top, pad_bottom), mode="constant", value=1.0
-                )
-        else:  # mode == "crop"
-            # Make divisible by 14
-            new_width = (width // 14) * 14
-            new_height = min((height // 14) * 14, new_width)
+            # Pad with white (value=1.0)
+            images = torch.nn.functional.pad(
+                images, (pad_left, pad_right, pad_top, pad_bottom), mode="constant", value=1.0
+            )
+    else:  # mode == "crop"
+        # Make divisible by 14
+        new_width = (width // 14) * 14
+        new_height = min((height // 14) * 14, new_width)
 
-            start_y = (height - new_height) // 2
-            img = img[:, start_y : start_y + new_height, :]
-            start_x = (width - new_width) // 2
-            img = img[:, :, start_x : start_x + new_width]
-            
-        shapes.add((img.shape[1], img.shape[2]))
-        images.append(img)
-
-    # Check if we have different shapes
-    # In theory our model can also work well with different shapes
-    if len(shapes) > 1:
-        print(f"Warning: Found images with different shapes: {shapes}")
-        # Find maximum dimensions
-        max_height = max(shape[0] for shape in shapes)
-        max_width = max(shape[1] for shape in shapes)
-
-        # Pad images if necessary
-        padded_images = []
-        for img in images:
-            h_padding = max_height - img.shape[1]
-            w_padding = max_width - img.shape[2]
-
-            if h_padding > 0 or w_padding > 0:
-                pad_top = h_padding // 2
-                pad_bottom = h_padding - pad_top
-                pad_left = w_padding // 2
-                pad_right = w_padding - pad_left
-
-                img = torch.nn.functional.pad(
-                    img, (pad_left, pad_right, pad_top, pad_bottom), mode="constant", value=1.0
-                )
-            padded_images.append(img)
-        images = padded_images
-
-    images = torch.stack(images)  # concatenate images
+        start_y = (height - new_height) // 2
+        start_x = (width - new_width) // 2
+        images = images[:, :, start_y : start_y + new_height, start_x : start_x + new_width]
 
     return images

@@ -6,6 +6,7 @@ weights/
 wandb/
 checkpoints
 checkpoints/
+onnx/
 third_party/
 onnx/
 hypothesis/
@@ -191,6 +192,6 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
-
 models/policy/var0/
 configs/var0_train/
+hypothesis/

@@ -24,13 +24,17 @@ import importlib
 import argparse
 import multiprocessing as mp
 from multiprocessing import Manager, Process, Queue
-
+from video_process import merge_episodes
 from description.utils.generate_episode_instructions import *
 
 
 current_file_path = os.path.abspath(__file__)
 parent_directory = os.path.dirname(current_file_path)
 # os.chdir(os.path.join(os.getcwd(), "simulation/robotwin2.0"))
+
+import subprocess
+import os
+import tempfile
 
 def get_visible_gpu_num():
     if "CUDA_VISIBLE_DEVICES" in os.environ:
@@ -119,12 +123,13 @@ def main(usr_args):
     task_name = usr_args["task_name"]
     task_config = usr_args["task_config"]
     ckpt_setting = usr_args["ckpt_setting"]
-    # checkpoint_num = usr_args['checkpoint_num']
+    checkpoint_num = usr_args.get("checkpoint_num", None)
     policy_name = usr_args["policy_name"]
     instruction_type = usr_args["instruction_type"]
     save_dir = None
     video_save_dir = None
     video_size = None
+    demos = usr_args.get('expert_data_num', None)
 
     # get_model = eval_function_decorator(policy_name, "get_model")
 
@@ -134,6 +139,7 @@ def main(usr_args):
     args['task_name'] = task_name
     args["task_config"] = task_config
     args["ckpt_setting"] = ckpt_setting
+    args["checkpoint_num"] = checkpoint_num
 
     embodiment_type = args.get("embodiment")
     embodiment_config_path = os.path.join(CONFIGS_PATH, "_embodiment_config.yml")
@@ -174,7 +180,7 @@ def main(usr_args):
     else:
         embodiment_name = str(embodiment_type[0]) + "+" + str(embodiment_type[1])
 
-    save_dir = Path(f"eval_result/{task_name}/{policy_name}/{task_config}/{ckpt_setting}/{current_time}")
+    save_dir = Path(f"eval_result/{task_name}/{policy_name}/{task_config}/{ckpt_setting}-{checkpoint_num}-{demos}/{current_time}")
     save_dir.mkdir(parents=True, exist_ok=True)
 
     if args["eval_video_log"]:
@@ -238,6 +244,7 @@ def main(usr_args):
 
     # print(f"Data has been saved to {file_path}")
     # return task_reward
+    merge_episodes(save_dir, "0_merged_episodes.mp4", speed=4.0)
 
 def eval_policy(
     task_name,

@@ -53,6 +53,7 @@ class EmVisRM(nn.Module):
     def __init__(
         self, 
         dim_2d: int = 1024, # image embedding dimension
+        dim_3d: int = 1024, # image embedding dimension
         dim_3d_keys: list = ['frame', 'global'], # image embedding dimension
         vggt_target: str = 'VGGT',
         load_vggt_pretrain = False,
@@ -80,10 +81,9 @@ class EmVisRM(nn.Module):
         **kwargs
     ):
         super().__init__()
-        self.img_processing = partial(preprocess_images, interpolate=interpolate)
         self.dim_2d = dim_2d if dim_2d!=None else 1024
         assert len(dim_3d_keys) <= 2
-        self.dim_3d = len(dim_3d_keys) * 1024
+        self.dim_3d = len(dim_3d_keys) * dim_3d
         self.view_as_seq = view_as_seq
 
         # initialize VGGT
@@ -100,6 +100,16 @@ class EmVisRM(nn.Module):
                 ft_heads = ft_heads,
                 heads=vggt_heads_list
             )
+            self.img_processing = partial(preprocess_images, interpolate=interpolate)
+        elif self.vggt_target == 'da3':
+            from .da3_encoder import DA3Encoder
+            self.vggt_encoder = DA3Encoder(
+                ft_layer_idx = ft_layer_idx,
+                intermediate_layer_idx=intermediate_layer_idx,
+                dim_keys = dim_3d_keys,
+            )
+            self.vggt_heads = None
+            self.img_processing = self.vggt_encoder.da3_preprocess
         else:
             from .vggt_encoder import VGGTEncoder
             from .vggt_heads import VGGTHead
@@ -112,9 +122,11 @@ class EmVisRM(nn.Module):
                 ft_heads = ft_heads,
                 heads=vggt_heads_list
             )
+            self.img_processing = partial(preprocess_images, interpolate=interpolate)
         if load_vggt_pretrain:
             self.vggt_encoder.load_pretrained_model(vggt_model_path)
-            self.vggt_heads.load_pretrained_model(vggt_model_path)
+            if self.vggt_heads != None: 
+                self.vggt_heads.load_pretrained_model(vggt_model_path)
 
         self.visualize = visualize
         self.intermediate_layer_idx = intermediate_layer_idx
@@ -129,7 +141,7 @@ class EmVisRM(nn.Module):
                 'dim_3d': self.dim_3d,
                 'dim_2d': self.dim_2d,
                 # 'dim_out': self.dim_3d (default)
-                'rope': self.vggt_encoder.rope,
+                # 'rope': self.vggt_encoder.rope,
                 'mlp_ratio': mlp_ratio,
                 'drop_p': drop_p,
                 'ffn_layer_num': ffn_layer_num,

@@ -103,7 +103,7 @@ model:
   shape_meta: ${shape_meta}
   noise_scheduler:
     _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
-    num_train_timesteps: 100
+    num_train_timesteps: 1000
     num_inference_timesteps: 5
     beta_schedule: squaredcos_cap_v2
     clip_sample: False

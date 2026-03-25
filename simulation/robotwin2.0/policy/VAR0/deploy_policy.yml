@@ -1,0 +1,11 @@
+# Basic experiment configuration
+policy_name: VAR0
+task_name: null
+task_config: null
+ckpt_setting: fm_23d_1f
+seed: 42
+instruction_type: unseen
+
+expert_data_num: 100
+checkpoint_num: null
+head_camera_type: D435
