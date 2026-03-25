@@ -227,12 +227,9 @@ class VODPPlusDitDDPM(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         """
         assert 'past_action' not in obs_dict # not implemented yet
         # normalize input
-        nobs = obs_dict
-        # filtered_obs_dict = {key: value for key, value in obs_dict.items() 
-        #         if key in self.normalizer.params_dict}
         filtered_obs_dict = {key: value for key, value in obs_dict.items() 
-                if key in ['endpose', 'agent_pos']}
-        nobs.update(self.normalizer.normalize(filtered_obs_dict))
+                if key in self.normalizer.params_dict}
+        nobs = self.normalizer.normalize(filtered_obs_dict)
         value = next(iter(nobs.values()))
         B, To = value.shape[:2]
         T = self.horizon
@@ -284,8 +281,7 @@ class VODPPlusDitDDPM(BasePolicy, PreTrainedModel, ModuleAttrMixin):
     def compute_loss(self, batch):
         # normalize input
         assert 'valid_mask' not in batch
-        nobs = batch['obs']
-        nobs.update(self.normalizer.normalize({key: nobs[key] for key in ['endpose', 'agent_pos']}))
+        nobs = self.normalizer.normalize(batch['obs'])
         nactions = self.normalizer['action'].normalize(batch['action'])
         batch_size = nactions.shape[0]
         horizon = nactions.shape[1]
