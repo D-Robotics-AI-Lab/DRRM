@@ -104,12 +104,12 @@ train_dataset:
   _target_: drrm.datasets.drrm_dataset.DRRMDataset
   root: ${train_dataset.path}/${task_name}
   repo_id: D-robotics/${task_name}
-  # detail_item: True
+  detail_item: True
   horizon: ${horizon}
   pad_before: 3
   pad_after: 3
   seed: 42
-  val_ratio: 0.5
+  val_ratio: 0.01
   max_train_episodes: ${expert_data_num}
   npy_feature_keys: null
   # - spatial_tokens_23

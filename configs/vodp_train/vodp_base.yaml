@@ -100,7 +100,7 @@ n_latency_steps: 0
 obs_as_global_cond: True
 model:
   target_config: drrm.models.VODPConfig
-  target_policy: drrm.models.VODP
+  target_polciy: drrm.models.VODP
   shape_meta: ${shape_meta}
   noise_scheduler:
     _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler

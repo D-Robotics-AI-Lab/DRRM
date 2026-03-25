@@ -1,10 +1,7 @@
 from functools import partial
 import logging
-# import time
-import types
-time = types.SimpleNamespace()
-time.time = lambda: 0.0
-from typing import Callable, Dict, List, Tuple
+import time
+from typing import Callable, Dict, List
 import numpy as np
 from torch import Tensor, nn
 import torch
@@ -220,16 +217,10 @@ class EmVisRM(nn.Module):
         logger.debug(f"VGGT encoding time: {time2-time1:.5f} seconds")
         if self.vggt_heads and not self.training and self.visualize:
             self.visualization(images, vggt_token_dict, True)
-        
-        # Calculate grid size for export-friendly Adapter usage
-        # Assuming typical square patch division if patch_size is available
-        grid_h = H // self.vggt_encoder.patch_size
-        grid_w = W // self.vggt_encoder.patch_size
-        
         # self.visualization(images, vggt_token_dict)
-        return self.vggt_forward(vggt_token_dict, image_tokens, image_pos, shape_grid=(grid_h, grid_w))
+        return self.vggt_forward(vggt_token_dict, image_tokens, image_pos)
     
-    def vggt_forward(self, vggt_token_dict: Dict, image_tokens: Tensor = None, image_pos: Tensor = None, shape_grid: Tuple[int, int] = None):
+    def vggt_forward(self, vggt_token_dict: Dict, image_tokens: Tensor = None, image_pos: Tensor = None):
         # image_tokens: [B * S, V, P_image, D]
         # image_pos: [B * S, V, P_image, 2]
         time0 = time.time()
@@ -307,13 +298,12 @@ class EmVisRM(nn.Module):
 
         ### scene_tokens -> MODEL ADAPTER -> scene_features (VA/VLA visual input alignment)
         scene_features = scene_tokens # defalut
-        if self.model_adapter is not None:
+        if self.model_adapter != None:
             adapter_input = {
                 'x': scene_tokens,
                 'xpos': spatial_pos,
                 'y': None,
                 'ypos': None,
-                'shape_grid': shape_grid,
             }
             scene_features = self.model_adapter(**adapter_input)
         time3 = time.time()

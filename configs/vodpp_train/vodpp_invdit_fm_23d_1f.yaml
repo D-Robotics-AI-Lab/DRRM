@@ -16,7 +16,7 @@ shape_meta:
       type: low_dim
       
 mixed_precision: "bf16"
-output_dir: "checkpoints/vodpp/${train_dataset.task}_${train_dataset.demo}/invdit_fm_23d_1f"
+output_dir: "checkpoints/vodpp_${train_dataset.task}_${train_dataset.demo}_invdit_fm_23d_1f"
 
 model:
   block_type: invblock

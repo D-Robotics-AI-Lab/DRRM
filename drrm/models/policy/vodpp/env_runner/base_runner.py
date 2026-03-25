@@ -124,8 +124,8 @@ class VODPPRunner(BaseRunner):
                     action_dict = policy.predict_action(obs_dict_input)
 
         # device_transfer
-        np_action_dict = action_dict["action"].detach().to("cpu").numpy()
-        action = np_action_dict.squeeze(0)[:self.n_action_steps]
+        np_action_dict = dict_apply(action_dict, lambda x: x.detach().to("cpu").numpy())
+        action = np_action_dict["action"].squeeze(0)[:self.n_action_steps]
         return action
     
     def get_last_obs(self):

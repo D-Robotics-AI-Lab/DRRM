@@ -82,7 +82,7 @@ class MultiImageObsEncoder(ModuleAttrMixin):
                         size=(h,w)
                     )
                     input_shape = (shape[0],h,w)
-                
+
                 # configure randomizer
                 this_randomizer = nn.Identity()
                 if crop_shape is not None:
@@ -124,7 +124,6 @@ class MultiImageObsEncoder(ModuleAttrMixin):
         self.rgb_keys = rgb_keys
         self.low_dim_keys = low_dim_keys
         self.key_shape_map = key_shape_map
-
 
     def forward(self, obs_dict):
         batch_size = None

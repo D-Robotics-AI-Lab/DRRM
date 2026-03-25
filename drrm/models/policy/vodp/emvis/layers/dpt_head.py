@@ -14,23 +14,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from vggt.heads.dpt_head import DPTHead as VGGTDPTHead
-from vggt.heads.dpt_head import activate_head
-
-def custom_interpolate(
-    x: torch.Tensor,
-    size: Tuple[int, int] = None,
-    scale_factor: float = None,
-    mode: str = "bilinear",
-    align_corners: bool = True,
-#    antialias: bool = False,
-) -> torch.Tensor:
-    """
-    Custom interpolate to avoid INT_MAX issues in nn.functional.interpolate.
-    """
-    if size is None:
-        size = (int(x.shape[-2] * scale_factor), int(x.shape[-1] * scale_factor))
-
-    return F.interpolate(x, size=size, mode=mode, align_corners=align_corners, antialias=False)
+from vggt.heads.dpt_head import custom_interpolate, activate_head
 
 class DPTHead(VGGTDPTHead):
     def forward(

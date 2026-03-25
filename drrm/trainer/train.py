@@ -26,33 +26,23 @@ if is_wandb_available():
 
 @torch.no_grad()
 def log_sample_res(policy_model, args, dataloader, logger):
-    logger.info(f"Running sampling for {args.num_val_batches} batches (bs={args.val_batch_size})...")
+    logger.info(f"Running sampling for {args.num_val_batches} batches...")
 
     policy_model.eval()
     
     loss_for_log = {}
-    val_inv_losses = list()
     val_losses = list()
     for step, batch in enumerate(dataloader):
         if step >= args.num_val_batches:
             break
         
         loss = policy_model(batch)
-        if isinstance(loss, dict):
-            val_loss = loss.pop("loss")
-            val_inv_loss = loss.pop("gen_inv_loss", None)
-            if val_inv_loss: 
-                val_inv_losses.append(val_inv_loss.item())
-        else:
-            val_loss = loss
-        val_losses.append(val_loss.item())
+        val_losses.append(loss.item())
         
-    # if len(val_losses) > 0:
-    val_loss = torch.mean(torch.tensor(val_losses)).item()
+    if len(val_losses) > 0:
+        val_loss = torch.mean(torch.tensor(val_losses)).item()
+    
     loss_for_log['loss'] = val_loss
-    if val_inv_losses:
-        val_inv_loss = torch.mean(torch.tensor(val_inv_losses)).item()
-        loss_for_log['inv_loss'] = val_inv_loss
     
     policy_model.train()
     torch.cuda.empty_cache()
@@ -92,17 +82,6 @@ def save_policy_custom(polciy, save_path):
         for k,v in state_dict.items()
         if not is_shared(k)
     }
-
-    # handle shared tensors that might confuse save_pretrained
-    ptr_to_key = {}
-    for k, v in filtered_state_dict.items():
-        if isinstance(v, torch.Tensor):
-            ptr = v.data_ptr()
-            if ptr in ptr_to_key:
-                filtered_state_dict[k] = v.clone()
-            else:
-                ptr_to_key[ptr] = k
-
     polciy.save_pretrained(save_path, state_dict=filtered_state_dict, max_shard_size="10GB")
     
 def load_policy(ckp_path, use_ckp_code = True):
@@ -271,10 +250,11 @@ def train(args, logger):
         power=args.lr_power,
     )
 
-    # Prepare everything with `accelerator`.
+    # Prepare everything with our `accelerator`.
     policy_model, optimizer, train_dataloader, val_dataloader, lr_scheduler = accelerator.prepare(
         policy_model, optimizer, train_dataloader, val_dataloader, lr_scheduler                   
     )
+
     ema_policy_model.to(accelerator.device, dtype=weight_dtype)
 
     # We need to initialize the trackers we use, and also store our configuration.
@@ -342,9 +322,6 @@ def train(args, logger):
     for batch in train_dataloader:
         with accelerator.accumulate(policy_model):
             loss = policy_model(batch)
-            if isinstance(loss, dict):
-                loss_for_log = loss
-                loss = loss.pop("loss")
 
             accelerator.backward(loss)
             if accelerator.sync_gradients:
@@ -358,7 +335,6 @@ def train(args, logger):
         ema_model.step(accelerator.unwrap_model(policy_model))
 
         # Checks if the accelerator has performed an optimization step behind the scenes
-        logs = {}
         if accelerator.sync_gradients:
             progress_bar.update(1)
 
@@ -377,12 +353,11 @@ def train(args, logger):
                     val_dataloader,
                     logger,
                 )
-                # logger.info(sample_loss_for_log)
-                # accelerator.log(sample_loss_for_log, step=global_step)
-                loss_for_log.update({f"val_{k}": v for k, v in sample_loss_for_log.items()})
+                logger.info(sample_loss_for_log)
+                accelerator.log(sample_loss_for_log, step=global_step)
             global_step += 1
         
-        logs.update({"loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]})
+        logs = {"loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
         progress_bar.set_postfix(**logs)
         logs.update(loss_for_log)
         # logger.info(logs)

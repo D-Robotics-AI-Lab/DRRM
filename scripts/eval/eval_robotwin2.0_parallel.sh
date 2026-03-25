@@ -7,9 +7,7 @@ task_config=${3}
 ckpt_setting=${4}
 expert_data_num=${5}
 num_process=${6}
-checkpoint_num=${7}
-seed=${8}
-
+seed=${7}
 # gpu_id=${8}
 DEBUG=True
 
@@ -32,10 +30,6 @@ args=(
 # Append optional overrides only if variables are non-empty
 if [ -n "${num_process}" ]; then
     args+=("--num_process" "${num_process}")
-fi
-
-if [ -n "${checkpoint_num}" ]; then
-    args+=("--checkpoint_num" "${checkpoint_num}")
 fi
 
 if [ -n "${seed}" ]; then
