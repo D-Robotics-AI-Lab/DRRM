@@ -61,17 +61,20 @@ class EmVisRM(nn.Module):
         drop_p = 0.,
         ffn_layer_num = 1,
         # preprocessing config
+        processor_config: Dict = {},
         interpolate: str = 'bilinear', # None nearest bilinear(default) bicubic
         # feature config
         only_2d: bool = False,
         seq_as_view: bool = False,
         view_as_seq: bool = False,
+        return_predict: bool = False,
+        only_first_view: bool = False,
+        # vggt config
         intermediate_layer_idx: List = [4, 11, 17, 23],
         ft_layer_idx: List = [],
         vggt_heads_list: List = ['camera_head', 'point_head', 'depth_head', 'track_head'],
         ft_heads: List = [],
-        return_predict: bool = False,
-        only_first_view: bool = False,
+        vggt_config: Dict = {},
         # module config
         injector_config: Dict = {},
         model_adapter_config: Dict = None,
@@ -100,6 +103,62 @@ class EmVisRM(nn.Module):
                 ft_heads = ft_heads,
                 heads=vggt_heads_list
             )
+            self.img_processing = partial(preprocess_images, interpolate=interpolate)
+        elif self.vggt_target == 'da3':
+            from .da3_encoder import DA3Encoder
+            # 读 vggt_model_path 下面的config.json 获取 model_name
+            import json
+            with open(os.path.join(vggt_model_path, "config.json"), "r") as f:
+                config = json.load(f)
+                model_name = config.get("model_name", vggt_model_path)
+            self.vggt_encoder = DA3Encoder(
+                ft_layer_idx = ft_layer_idx,
+                intermediate_layer_idx=intermediate_layer_idx,
+                dim_keys = dim_3d_keys,
+                model_name = model_name
+            )
+            if hasattr(self.vggt_encoder.model, 'da3'):
+                self.vggt_encoder.model.da3.head = None
+                self.vggt_encoder.model.da3.cam_enc = None
+                self.vggt_encoder.model.da3.cam_dec = None
+                self.vggt_encoder.model.da3.gs_head = None
+                self.vggt_encoder.model.da3_metric = None
+                self.vggt_heads = None
+            else:
+                self.vggt_encoder.model.head = None
+                self.vggt_encoder.model.cam_enc = None
+                self.vggt_encoder.model.cam_dec = None
+                self.vggt_encoder.model.gs_head = None
+                self.vggt_encoder.model.gs_adapter = None
+                self.vggt_heads = None
+                
+            if isinstance(interpolate, int):
+                self.img_processing = partial(self.vggt_encoder.da3_preprocess, process_res=interpolate)
+            else:
+                self.img_processing = self.vggt_encoder.da3_preprocess
+        elif 'dinov3' in self.vggt_target:
+            if 'cnn' in self.vggt_target:
+                from .dinov3cnn_encoder import DINOv3Encoder
+                from transformers import DINOv3ConvNextConfig as DINOv3Config
+            else:
+                from .dinov3_encoder import DINOv3Encoder
+                from transformers import DINOv3ViTConfig as DINOv3Config
+            from transformers import DINOv3ViTImageProcessorFast
+            from transformers import AutoImageProcessor, AutoModel, AutoConfig
+            if vggt_config:
+                config = DINOv3Config(**vggt_config)
+            else:
+                config = AutoConfig.from_pretrained(f"{vggt_model_path}")
+                vggt_config.update(config.to_diff_dict())
+
+            if processor_config:
+                processor =  DINOv3ViTImageProcessorFast(**processor_config)
+            else:
+                processor = AutoImageProcessor.from_pretrained(f"{vggt_model_path}")
+                processor_config.update(processor.to_dict())
+            self.vggt_encoder = DINOv3Encoder(config)
+            self.vggt_heads = None
+            self.img_processing = lambda x: processor(x, return_tensors="pt")['pixel_values']
         else:
             from .vggt_encoder import VGGTEncoder
             from .vggt_heads import VGGTHead
@@ -112,6 +171,7 @@ class EmVisRM(nn.Module):
                 ft_heads = ft_heads,
                 heads=vggt_heads_list
             )
+            self.img_processing = partial(preprocess_images, interpolate=interpolate)
         if load_vggt_pretrain:
             self.vggt_encoder.load_pretrained_model(vggt_model_path)
             self.vggt_heads.load_pretrained_model(vggt_model_path)
@@ -188,7 +248,6 @@ class EmVisRM(nn.Module):
             f"  Trainable Ratio: {trainable_ratio:.2f}%\n"
             f"{params_state}"
         )
-        
         logger.info(log_msg)
         self.return_predict = return_predict
     

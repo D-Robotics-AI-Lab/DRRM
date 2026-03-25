@@ -82,7 +82,9 @@ class VODPPlusDitDDPM(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         }
         self.noise_scheduler = hydra.utils.instantiate(noise_scheduler)
         self.noise_scheduler_sample = hydra.utils.instantiate(config.noise_scheduler_sample)
-        self.obs_encoder = hydra.utils.instantiate(config.obs_encoder)
+        # self.obs_encoder = hydra.utils.instantiate(config.obs_encoder, _recursive_=False, _convert_="none")
+        EncoderClass = hydra.utils.get_class(config.obs_encoder['_target_'])
+        self.obs_encoder = EncoderClass(**config.obs_encoder)
 
         action_shape = config.shape_meta['action']['shape']
         horizon = config.horizon
@@ -225,9 +227,12 @@ class VODPPlusDitDDPM(BasePolicy, PreTrainedModel, ModuleAttrMixin):
         """
         assert 'past_action' not in obs_dict # not implemented yet
         # normalize input
+        nobs = {**obs_dict}
+        # filtered_obs_dict = {key: value for key, value in obs_dict.items() 
+        #         if key in self.normalizer.params_dict}
         filtered_obs_dict = {key: value for key, value in obs_dict.items() 
-                if key in self.normalizer.params_dict}
-        nobs = self.normalizer.normalize(filtered_obs_dict)
+                if key in ['endpose', 'agent_pos']}
+        nobs.update(self.normalizer.normalize(filtered_obs_dict))
         value = next(iter(nobs.values()))
         B, To = value.shape[:2]
         T = self.horizon
@@ -276,7 +281,8 @@ class VODPPlusDitDDPM(BasePolicy, PreTrainedModel, ModuleAttrMixin):
     def compute_loss(self, batch):
         # normalize input
         assert 'valid_mask' not in batch
-        nobs = self.normalizer.normalize(batch['obs'])
+        nobs = {**batch['obs']}
+        nobs.update(self.normalizer.normalize({key: nobs[key] for key in ['endpose', 'agent_pos']}))
         nactions = self.normalizer['action'].normalize(batch['action'])
         batch_size = nactions.shape[0]
         horizon = nactions.shape[1]

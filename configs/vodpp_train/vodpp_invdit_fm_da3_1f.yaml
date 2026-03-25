@@ -1,5 +1,5 @@
 defaults:
-  - vodpp_dit_ddpm
+  - vodpp_dit_fm
   - _self_
 n_obs_steps: 1
 
@@ -16,29 +16,32 @@ shape_meta:
       type: low_dim
       
 mixed_precision: "bf16"
-output_dir: "${base_dir}_vggt_23d_1f"
+output_dir: "checkpoints/vodpp/${train_dataset.task}_${train_dataset.demo}/invdit_fm_da3_1f"
 
 model:
+  block_type: invblock
   obs_encoder:
     state_key: null
     # rgb_key: ["head_cam", "front_cam"]
     emvis_config:
-      dim_2d: null
+      dim_2d: 3072
+      dim_3d: 1536
       dim_3d_keys: ['frame', 'global']
-      load_vggt_heads: true
+      vggt_target: 'da3'
+      load_vggt_heads: false
       load_vggt_pretrain: true
-      vggt_model_path: pretrained/VGGT-1B/model.pt
+      vggt_model_path: pretrained/DA3NESTED-GIANT-LARGE
       interpolate: 'bilinear'
       mlp_ratio: 1.0
       drop_p: 0.0
       ft_heads: []
       ft_layer_idx: []
-      intermediate_layer_idx: [23]
+      intermediate_layer_idx: [-1]
       seq_as_view: False
       only_first_view: True
       injector_config:
-        fuse_2d: True
-        fuse_3d: False
+        fuse_2d: False
+        fuse_3d: True
         ffn_layer_num: 1
         dim_out: 1024
       model_adapter_config:
