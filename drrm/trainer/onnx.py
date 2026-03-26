@@ -363,7 +363,7 @@ def onnx(args, logger):
                 result = policy_model(**sample_batch)
                 result = [v.cpu().numpy() for k, v in result.items()]
 
-                if not os.path.exists(f"./onnx/{prefix}.onnx"):
+                if not os.path.exists(f"./onnx/{prefix}.onnx") or step == 0:
                     export_basepolicy_to_onnx(
                         model=policy_model,
                         dummy_input=sample_batch,
