@@ -363,12 +363,13 @@ def onnx(args, logger):
                 result = policy_model(**sample_batch)
                 result = [v.cpu().numpy() for k, v in result.items()]
 
-                # export_basepolicy_to_onnx(
-                #     model=policy_model,
-                #     dummy_input=sample_batch,
-                #     onnx_save_path=f"./onnx/{prefix}.onnx",
-                #     opset_version=19
-                # )
+                if not os.path.exists(f"./onnx/{prefix}.onnx"):
+                    export_basepolicy_to_onnx(
+                        model=policy_model,
+                        dummy_input=sample_batch,
+                        onnx_save_path=f"./onnx/{prefix}.onnx",
+                        opset_version=19
+                    )
 
                 # ONNX Runtime推理结果
                 ort_sess = ort.InferenceSession(
